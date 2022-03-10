@@ -24,7 +24,7 @@ async def on_ready():
     guild_ids=[server_id]
 )
 async def hi(ctx):
-    await ctx.send("Hello")
+    await ctx.send(f"{client.get_emoji(951508751771369523)}Hello")
 
 
 @slash.slash(
