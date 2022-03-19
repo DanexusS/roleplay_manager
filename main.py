@@ -19,7 +19,7 @@ async def on_ready():
     print("Бот запустился")
 
 
-# ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
+# ----------------------------------------ПРИМЕР-КОМАНД----------------------------------------
 # @slash.slash(
 #     name="hi",
 #     description="says hi",
@@ -39,11 +39,6 @@ async def on_ready():
 #     await ctx.send(f"Hello {member.mention}")
 # ----------------------------------------------------------------------------------------------
 
-async def create_registration(ctx):
-    guild = ctx.message.guild
-    await guild.create_text_channel('cool-channel')
-
-    await ctx.send(f"Создан чат регистрации.")
 
 # Команда, настраивающая сервер
 @slash.slash(
@@ -52,8 +47,8 @@ async def create_registration(ctx):
     guild_ids=test_servers_id
 )
 async def implement(ctx):
-    await create_registration(ctx)
-
+    guild = ctx.guild
+    await guild.create_text_channel('cool-channel')
     await ctx.send(f"Готово!")
 
 
