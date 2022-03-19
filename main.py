@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_slash.utils.manage_commands import create_option
+from dislash import InteractionClient, ActionRow, Button, ButtonStyle
 
 
 TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
@@ -19,7 +20,7 @@ async def on_ready():
     print("Бот запустился")
 
 
-# ----------------------------------------ПРИМЕР-КОМАНД----------------------------------------
+# ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
 # @slash.slash(
 #     name="hi",
 #     description="says hi",
@@ -39,16 +40,58 @@ async def on_ready():
 #     await ctx.send(f"Hello {member.mention}")
 # ----------------------------------------------------------------------------------------------
 
+# @bot.event
+# async def on_button_click(inter):
+#
+#     res = 'Вы успешно верифицировались!' # ваш вывод сообщение что человек получил роль
+#     guild = bot.get_guild(inter.guild.id)
+#
+#     if inter.component.id == "verif_button":
+#         verif = guild.get_role(id вашей роли)
+#         member = inter.author
+#         await member.add_roles(verif)
+#         await inter.reply(res, ephemeral = True)
 
-# Команда, настраивающая сервер
+
+# КОМАНДА, создающая чат с регистрацией
+async def create_registration(ctx):
+    guild = ctx.guild
+    name = 'создание-персонажа'
+    for channel in guild.channels:
+        if channel.name == name:
+            await ctx.send(f"Чат регистрации уже создан.")
+            return
+
+    channel = await guild.create_text_channel(name)
+
+    emb = discord.Embed(
+        description=
+        f"""Здраствуйте вы попали на сервер {channel.guild.name}, пройдите верификацию чтобы получить доступ к другим каналам.""",
+        colour=0xFF8C00
+    )
+    emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/772850448892690462/880752123418136596/947d1f802c858b540b84bc3000fc2439_1_-removebg-preview.png')
+    emb.set_author(name='Верификация')
+
+    row = ActionRow(
+        Button(
+            style=ButtonStyle.gray,
+            label='Верифицироваться',
+            custom_id='verif_button'
+        )
+    )
+    await channel.send(embed=emb, components=[row])
+
+    await channel.send(f"Создан чат регистрации.")
+
+# КОМАНДА, настраивающая сервер
 @slash.slash(
     name="implement",
     description="Создаёт чаты и настраивает сервер для игры!",
     guild_ids=test_servers_id
 )
 async def implement(ctx):
-    guild = ctx.guild
-    await guild.create_text_channel('cool-channel')
+    await create_registration(ctx)
+
     await ctx.send(f"Готово!")
 
 

@@ -7,7 +7,7 @@ from .db_session import SqlAlchemyBase
 class User(SqlAlchemyBase):
     __tablename__ = 'users'
 
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
+    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
 
     name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     nation = sqlalchemy.Column(sqlalchemy.String, nullable=True)
@@ -15,11 +15,11 @@ class User(SqlAlchemyBase):
 
     money = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
 
-    health = sqlalchemy.Column(sqlalchemy.Integer)
-    strength = sqlalchemy.Column(sqlalchemy.Integer)
-    intelligence = sqlalchemy.Column(sqlalchemy.Integer)
-    dexterity = sqlalchemy.Column(sqlalchemy.Integer)
-    speed = sqlalchemy.Column(sqlalchemy.Integer)
+    health = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    strength = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    intelligence = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    dexterity = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    speed = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
 
     inventory = sqlalchemy.Column(sqlalchemy.String, nullable=True)
 
