@@ -1,10 +1,10 @@
 import discord
 import json
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_slash.utils.manage_commands import create_option
-from dislash import InteractionClient, ActionRow, Button, ButtonStyle
+from discord_components import DiscordComponents, Button, ButtonStyle
 
 
 TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
@@ -17,17 +17,25 @@ slash = SlashCommand(client, sync_commands=True)
 
 @client.event
 async def on_ready():
+    DiscordComponents(client)
     print("Бот запустился")
 
 
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
-# @slash.slash(
-#     name="hi",
-#     description="says hi",
-#     guild_ids=[server_id]
-# )
-# async def hi(ctx):
-#     await ctx.send(f"{client.get_emoji(951508751771369523)}Hello")
+@client.command()
+async def hi(ctx):
+    await ctx.send(
+        components=[
+            [Button(style=ButtonStyle.gray, label="кто нажмёт, тот лох", emoji="👋"),
+            Button(style=ButtonStyle.green, label="кто нажмёт, тот не лох", emoji="👋")]
+        ]
+    )
+    response = await client.wait_for("button_click")
+    if response.channel == ctx.channel:
+        if response.component.label == "кто нажмёт, тот лох":
+            await response.respond(content="Great!")
+        else:
+            await response.respond(content="Not cool!")
 #
 #
 # @slash.slash(
@@ -64,24 +72,25 @@ async def create_registration(ctx):
 
     channel = await guild.create_text_channel(name)
 
-    emb = discord.Embed(
-        description=
-        f"""Здраствуйте вы попали на сервер {channel.guild.name}, пройдите верификацию чтобы получить доступ к другим каналам.""",
-        colour=0xFF8C00
-    )
-    emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/772850448892690462/880752123418136596/947d1f802c858b540b84bc3000fc2439_1_-removebg-preview.png')
-    emb.set_author(name='Верификация')
-
-    row = ActionRow(
-        Button(
-            style=ButtonStyle.gray,
-            label='Верифицироваться',
-            custom_id='verif_button'
-        )
-    )
-    await channel.send(embed=emb, components=[row])
+    # emb = discord.Embed(
+    #     description=
+    #     f"""Здраствуйте вы попали на сервер {channel.guild.name}, пройдите верификацию чтобы получить доступ к другим каналам.""",
+    #     colour=0xFF8C00
+    # )
+    # emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/772850448892690462/880752123418136596/947d1f802c858b540b84bc3000fc2439_1_-removebg-preview.png')
+    # emb.set_author(name='Верификация')
+    #
+    # row = ActionRow(
+    #     Button(
+    #         style=ButtonStyle.gray,
+    #         label='Верифицироваться',
+    #         custom_id='verif_button'
+    #     )
+    # )
+    # await channel.send(embed=emb, components=[row])
 
     await channel.send(f"Создан чат регистрации.")
+
 
 # КОМАНДА, настраивающая сервер
 @slash.slash(
