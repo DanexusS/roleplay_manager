@@ -22,20 +22,6 @@ async def on_ready():
 
 
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
-@client.command()
-async def hi(ctx):
-    await ctx.send(
-        components=[
-            [Button(style=ButtonStyle.gray, label="кто нажмёт, тот лох", emoji="👋"),
-            Button(style=ButtonStyle.green, label="кто нажмёт, тот не лох", emoji="👋")]
-        ]
-    )
-    response = await client.wait_for("button_click")
-    if response.channel == ctx.channel:
-        if response.component.label == "кто нажмёт, тот лох":
-            await response.respond(content="Great!")
-        else:
-            await response.respond(content="Not cool!")
 #
 #
 # @slash.slash(
@@ -72,22 +58,18 @@ async def create_registration(ctx):
 
     channel = await guild.create_text_channel(name)
 
-    # emb = discord.Embed(
-    #     description=
-    #     f"""Здраствуйте вы попали на сервер {channel.guild.name}, пройдите верификацию чтобы получить доступ к другим каналам.""",
-    #     colour=0xFF8C00
-    # )
-    # emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/772850448892690462/880752123418136596/947d1f802c858b540b84bc3000fc2439_1_-removebg-preview.png')
-    # emb.set_author(name='Верификация')
-    #
-    # row = ActionRow(
-    #     Button(
-    #         style=ButtonStyle.gray,
-    #         label='Верифицироваться',
-    #         custom_id='verif_button'
-    #     )
-    # )
-    # await channel.send(embed=emb, components=[row])
+    await channel.send(
+        components=[
+            [Button(style=ButtonStyle.gray, label="кто нажмёт, тот лох", emoji="👋"),
+             Button(style=ButtonStyle.green, label="кто нажмёт, тот не лох", emoji="👋")]
+        ]
+    )
+    response = await client.wait_for("button_click")
+    if response.channel == ctx.channel:
+        if response.component.label == "кто нажмёт, тот лох":
+            await response.respond(content="Great!")
+        else:
+            await response.respond(content="Not cool!")
 
     await channel.send(f"Создан чат регистрации.")
 
