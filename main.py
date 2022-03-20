@@ -46,33 +46,75 @@ async def on_ready():
 #         await member.add_roles(verif)
 #         await inter.reply(res, ephemeral = True)
 
-
 # КОМАНДА, создающая чат с регистрацией
 async def create_registration(ctx):
     guild = ctx.guild
     name = 'создание-персонажа'
     for channel in guild.channels:
         if channel.name == name:
-            await ctx.send(f"Чат регистрации уже создан.")
+            await ctx.send(f":x: Чат регистрации уже создан.")
             return
 
     channel = await guild.create_text_channel(name)
 
+    await channel.send(f"**В этом чате вы должны создать своего персонажа.** *подходите к этому вопросу с умом!* @everyone")
+
+    # ======= ВЫБОР РАСЫ
+    text = '*```yaml\n➢ От расы зависят некоторые характеристики.\n➢ [Дописать что то ещё].```*'
+    emb = discord.Embed(title='⮮ __**Выбор расы:**__', color=44444)
+    emb.add_field(name='**Важно:**', value=text, inline=False)
+
+    for guild in client.guilds:
+        emoji1 = discord.utils.get(guild.emojis, name="north")
+        emoji2 = discord.utils.get(guild.emojis, name="south")
+        emoji3 = discord.utils.get(guild.emojis, name="techno")
+
     await channel.send(
+        embed=emb,
         components=[
-            [Button(style=ButtonStyle.gray, label="кто нажмёт, тот лох", emoji="👋"),
-             Button(style=ButtonStyle.green, label="кто нажмёт, тот не лох", emoji="👋")]
+            [Button(style=ButtonStyle.green, label="Северяне", emoji=emoji1),
+             Button(style=ButtonStyle.green, label="Южнане", emoji=emoji2),
+             Button(style=ButtonStyle.green, label="Техно-гики", emoji=emoji3)]
         ]
     )
+    # ======= ВЫБОР ПРОИСХОЖДЕНИЯ
+    text = '*```yaml\n➢ От происхождения зависят некоторые характеристики.\n➢ [Дописать что то ещё].```*'
+    emb = discord.Embed(title='⮮ __**Выбор происхождения:**__', color=44444)
+    emb.add_field(name='**Важно:**', value=text, inline=False)
+
+    for guild in client.guilds:
+        emoji1 = discord.utils.get(guild.emojis, name="rich")
+        emoji2 = discord.utils.get(guild.emojis, name="norm")
+        emoji3 = discord.utils.get(guild.emojis, name="poor")
+
+    await channel.send(
+        embed=emb,
+        components=[
+            [Button(style=ButtonStyle.green, label="Богатая семья", emoji=emoji1),
+             Button(style=ButtonStyle.green, label="Нормальная семья", emoji=emoji2),
+             Button(style=ButtonStyle.green, label="Бедность", emoji=emoji3)]
+        ]
+    )
+    # ======= СОЗДАНИЕ ИМЕНИ
+    text = '*```yaml\n➢ Желаемое вами имя напишите в данный чат.\n➢ Имя не влияет на характеристики.\n➢ Вводите имя с умом так как его нельзя будет изменить.```*'
+    emb = discord.Embed(title='⮮ __**Ваше имя:**__', color=44444)
+    emb.add_field(name='**Важно:**', value=text, inline=False)
+
+    await channel.send(embed=emb)
+
+    # Сделать создание имени
+
+    # ======= ПРОЧЕЕ
+    ''' РАБОТАЕТ НЕ ТАК КАК НАДО
     response = await client.wait_for("button_click")
-    if response.channel == ctx.channel:
-        if response.component.label == "кто нажмёт, тот лох":
+    if response.channel == channel:
+        if response.component.label == "Северяне":
             await response.respond(content="Great!")
         else:
             await response.respond(content="Not cool!")
+    '''
 
-    await channel.send(f"Создан чат регистрации.")
-
+    await ctx.send(f":white_check_mark: Чат регистрации создан.")
 
 # КОМАНДА, настраивающая сервер
 @slash.slash(
@@ -83,8 +125,7 @@ async def create_registration(ctx):
 async def implement(ctx):
     await create_registration(ctx)
 
-    await ctx.send(f"Готово!")
-
+    await ctx.send(f":white_check_mark: **Готово!**")
 
 # Запуск
 client.run(TOKEN)
