@@ -1,24 +1,32 @@
 import discord
 import json
 
-from data import *
+from consts import *
 from discord.ext import commands
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_slash.utils.manage_commands import create_option
 from discord_components import DiscordComponents, Button, ButtonStyle
+from data import db_session
+from data.users import User
 
 
 test_servers_id = [936293335063232672]
+
 activity = discord.Activity(type=discord.ActivityType.listening, name="шутки про хохлов")
-client = commands.Bot(command_prefix=PREFIX, activity=activity)
+intents = discord.Intents.default()
+intents.members = True
+
+client = commands.Bot(command_prefix=PREFIX, intents=intents, activity=activity)
 slash = SlashCommand(client, sync_commands=True)
+
+db_session.global_init("db/users.db")
+db_sess = db_session.create_session()
 
 
 @client.event
 async def on_ready():
     print("Бот запустился")
-
 
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
 #
@@ -45,15 +53,27 @@ async def on_ready():
 #         await member.add_roles(verif)
 #         await inter.reply(res, ephemeral = True)
 
-# КОМАНДА, создающая чат с регистрацией
+@client.event
+async def on_button_click(res):
+    decision_type = res.component.label
+    if decision_type == 'Северяне':
+        await res.send('Вы нажали кнопку с лэйблом старт')
+    if decision_type == 'Южнане':
+        await res.send('Вы нажали кнопку с лэйблом старт')
+    if decision_type == 'Техно-гики':
+        await res.send('Вы нажали кнопку с лэйблом старт')
+    if decision_type == 'Богатая семья':
+        await res.send('Вы нажали кнопку с лэйблом старт')
+    if decision_type == 'Обычная семья':
+        await res.send('Вы нажали кнопку с лэйблом старт')
+    if decision_type == 'Бедность':
+        await res.send('Вы нажали кнопку с лэйблом старт')
+
+
+# ФУНКЦИЯ, создающая чат с регистрацией
 async def create_registration(ctx):
     guild = ctx.guild
     name = 'создание-персонажа'
-    for channel in guild.channels:
-        if channel.name == name:
-            await ctx.send(f":x: Чат регистрации уже создан.")
-            return
-
     channel = await guild.create_text_channel(name)
 
     await channel.send(f"**В этом чате вы должны создать своего персонажа.** *подходите к этому вопросу с умом!*")
@@ -86,9 +106,10 @@ async def create_registration(ctx):
     )
     # ======= СОЗДАНИЕ ИМЕНИ
     text = '*```yaml\n' \
-           '➢ Желаемое вами имя напишите в данный чат.\n' \
+           '➢ Желаемое вами имя напишите в данный чат с помощью команды: "/name".\n' \
            '➢ Имя не влияет на характеристики.\n' \
-           '➢ Вводите имя с умом так как его нельзя будет изменить.```*'
+           '➢ Вводите имя с умом так как его можно будет изменить только через админа.' \
+           '➢ После написания имени вы завершите создание профиля.```*'
     emb = discord.Embed(title='⮮ __**Ваше имя:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
@@ -97,16 +118,27 @@ async def create_registration(ctx):
     # Сделать создание имени
 
     # ======= ПРОЧЕЕ
-    ''' РАБОТАЕТ НЕ ТАК КАК НАДО
-    response = await client.wait_for("button_click")
-    if response.channel == channel:
-        if response.component.label == "Северяне":
-            await response.respond(content="Great!")
-        else:
-            await response.respond(content="Not cool!")
-    '''
-
     await ctx.send(f":white_check_mark: Чат регистрации создан.")
+
+
+# ФУНКЦИЯ, создающая чат с регистрацией
+async def create_db(ctx):
+    for member in ctx.guild.members:
+        if not member.bot:
+            user = User()
+            user.id = member.id
+            user.name = '-1'
+            user.nation = '-1'
+            user.origin = '-1'
+            user.money = -1
+            user.health = -1
+            user.strength = -1
+            user.intelligence = -1
+            user.dexterity = -1
+            user.speed = -1
+            user.inventory = '-1'
+            db_sess.add(user)
+    db_sess.commit()
 
 
 # КОМАНДА, настраивающая сервер
@@ -116,7 +148,16 @@ async def create_registration(ctx):
     guild_ids=test_servers_id
 )
 async def implement(ctx):
+    guild = ctx.guild
+    name = 'создание-персонажа'
+    for channel in guild.channels:
+        if channel.name == name:
+            await ctx.send(f":x: Первоначальная настройка сервера уже была произведена.")
+            return
+
     await create_registration(ctx)
+
+    await create_db(ctx)
 
     await ctx.send(f":white_check_mark: **Готово!**")
 

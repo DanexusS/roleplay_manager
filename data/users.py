@@ -22,5 +22,3 @@ class User(SqlAlchemyBase):
     speed = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
 
     inventory = sqlalchemy.Column(sqlalchemy.String, nullable=True)
-
-    news = orm.relation("News", back_populates='user')
