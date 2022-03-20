@@ -122,5 +122,5 @@ async def implement(ctx):
 
 
 # Запуск
-client.run(TOKEN)
 DiscordComponents(client)
+client.run(TOKEN)
