@@ -57,17 +57,22 @@ async def create_registration(ctx):
 
     channel = await guild.create_text_channel(name)
 
-    await channel.send(f"**В этом чате вы должны создать своего персонажа.** *подходите к этому вопросу с умом!* @everyone")
+    await channel.send(f"**В этом чате вы должны создать своего персонажа.** *подходите к этому вопросу с умом!*")
 
     # ======= ВЫБОР РАСЫ
     text = '*```yaml\n➢ От расы зависят некоторые характеристики.\n➢ [Дописать что то ещё].```*'
     emb = discord.Embed(title='⮮ __**Выбор расы:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
-    for guild in client.guilds:
-        emoji1 = discord.utils.get(guild.emojis, name="north")
-        emoji2 = discord.utils.get(guild.emojis, name="south")
-        emoji3 = discord.utils.get(guild.emojis, name="techno")
+    emoji1 = client.get_emoji(954886438233710664)
+    # discord.utils.get(guild.emojis, name="north")
+    emoji2 = client.get_emoji(954886483817426954)
+    # discord.utils.get(guild.emojis, name="south")
+    emoji3 = client.get_emoji(954886667557285908)
+    # discord.utils.get(guild.emojis, name="techno")
+
+    # for guild in client.guilds:
+    #
 
     await channel.send(
         embed=emb,
@@ -82,10 +87,17 @@ async def create_registration(ctx):
     emb = discord.Embed(title='⮮ __**Выбор происхождения:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
-    for guild in client.guilds:
-        emoji1 = discord.utils.get(guild.emojis, name="rich")
-        emoji2 = discord.utils.get(guild.emojis, name="norm")
-        emoji3 = discord.utils.get(guild.emojis, name="poor")
+    emoji1 = client.get_emoji(954894281972277319)
+    # discord.utils.get(guild.emojis, name="rich")
+    emoji2 = client.get_emoji(954894246303920149)
+    # discord.utils.get(guild.emojis, name="norm")
+    emoji3 = client.get_emoji(954894194537811988)
+    # discord.utils.get(guild.emojis, name="poor")
+
+    # for guild in client.guilds:
+    #     emoji1 = discord.utils.get(guild.emojis, name="rich")
+    #     emoji2 = discord.utils.get(guild.emojis, name="norm")
+    #     emoji3 = discord.utils.get(guild.emojis, name="poor")
 
     await channel.send(
         embed=emb,
@@ -96,7 +108,10 @@ async def create_registration(ctx):
         ]
     )
     # ======= СОЗДАНИЕ ИМЕНИ
-    text = '*```yaml\n➢ Желаемое вами имя напишите в данный чат.\n➢ Имя не влияет на характеристики.\n➢ Вводите имя с умом так как его нельзя будет изменить.```*'
+    text = '*```yaml\n' \
+           '➢ Желаемое вами имя напишите в данный чат.\n' \
+           '➢ Имя не влияет на характеристики.\n' \
+           '➢ Вводите имя с умом так как его нельзя будет изменить.```*'
     emb = discord.Embed(title='⮮ __**Ваше имя:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
@@ -115,6 +130,7 @@ async def create_registration(ctx):
     '''
 
     await ctx.send(f":white_check_mark: Чат регистрации создан.")
+
 
 # КОМАНДА, настраивающая сервер
 @slash.slash(
