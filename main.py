@@ -1,5 +1,7 @@
 import discord
 import json
+
+from data import *
 from discord.ext import commands
 from discord.utils import get
 from discord_slash import SlashCommand
@@ -7,8 +9,6 @@ from discord_slash.utils.manage_commands import create_option
 from discord_components import DiscordComponents, Button, ButtonStyle
 
 
-TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
-PREFIX = "/"
 test_servers_id = [936293335063232672]
 activity = discord.Activity(type=discord.ActivityType.listening, name="шутки про хохлов")
 client = commands.Bot(command_prefix=PREFIX, activity=activity)
@@ -17,7 +17,6 @@ slash = SlashCommand(client, sync_commands=True)
 
 @client.event
 async def on_ready():
-    DiscordComponents(client)
     print("Бот запустился")
 
 
@@ -64,22 +63,12 @@ async def create_registration(ctx):
     emb = discord.Embed(title='⮮ __**Выбор расы:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
-    emoji1 = client.get_emoji(954886438233710664)
-    # discord.utils.get(guild.emojis, name="north")
-    emoji2 = client.get_emoji(954886483817426954)
-    # discord.utils.get(guild.emojis, name="south")
-    emoji3 = client.get_emoji(954886667557285908)
-    # discord.utils.get(guild.emojis, name="techno")
-
-    # for guild in client.guilds:
-    #
-
     await channel.send(
         embed=emb,
         components=[
-            [Button(style=ButtonStyle.green, label="Северяне", emoji=emoji1),
-             Button(style=ButtonStyle.green, label="Южнане", emoji=emoji2),
-             Button(style=ButtonStyle.green, label="Техно-гики", emoji=emoji3)]
+            [Button(style=ButtonStyle.gray, label="Северяне", emoji=client.get_emoji(emoji["north"])),
+             Button(style=ButtonStyle.gray, label="Южнане", emoji=client.get_emoji(emoji["south"])),
+             Button(style=ButtonStyle.gray, label="Техно-гики", emoji=client.get_emoji(emoji["techno"]))]
         ]
     )
     # ======= ВЫБОР ПРОИСХОЖДЕНИЯ
@@ -87,24 +76,12 @@ async def create_registration(ctx):
     emb = discord.Embed(title='⮮ __**Выбор происхождения:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
-    emoji1 = client.get_emoji(954894281972277319)
-    # discord.utils.get(guild.emojis, name="rich")
-    emoji2 = client.get_emoji(954894246303920149)
-    # discord.utils.get(guild.emojis, name="norm")
-    emoji3 = client.get_emoji(954894194537811988)
-    # discord.utils.get(guild.emojis, name="poor")
-
-    # for guild in client.guilds:
-    #     emoji1 = discord.utils.get(guild.emojis, name="rich")
-    #     emoji2 = discord.utils.get(guild.emojis, name="norm")
-    #     emoji3 = discord.utils.get(guild.emojis, name="poor")
-
     await channel.send(
         embed=emb,
         components=[
-            [Button(style=ButtonStyle.green, label="Богатая семья", emoji=emoji1),
-             Button(style=ButtonStyle.green, label="Нормальная семья", emoji=emoji2),
-             Button(style=ButtonStyle.green, label="Бедность", emoji=emoji3)]
+            [Button(style=ButtonStyle.gray, label="Богатая семья", emoji=client.get_emoji(emoji["rich"])),
+             Button(style=ButtonStyle.gray, label="Обычная семья", emoji=client.get_emoji(emoji["norm"])),
+             Button(style=ButtonStyle.gray, label="Бедность", emoji=client.get_emoji(emoji["poor"]))]
         ]
     )
     # ======= СОЗДАНИЕ ИМЕНИ
@@ -143,5 +120,7 @@ async def implement(ctx):
 
     await ctx.send(f":white_check_mark: **Готово!**")
 
+
 # Запуск
 client.run(TOKEN)
+DiscordComponents(client)
