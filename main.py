@@ -23,14 +23,12 @@ slash = SlashCommand(client, sync_commands=True)
 db_session.global_init("db/users.db")
 db_sess = db_session.create_session()
 
-
+# ФУНКЦИЯ, показывающая то что бот запустился
 @client.event
 async def on_ready():
     print("Бот запустился")
 
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
-#
-#
 # @slash.slash(
 #     name="hi_member",
 #     description="says hi1",
@@ -52,24 +50,27 @@ async def on_ready():
 #         member = inter.author
 #         await member.add_roles(verif)
 #         await inter.reply(res, ephemeral = True)
+# ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
 
-
+# ФУНКЦИЯ, обрабатывающая нажатие кнопок
 @client.event
-async def on_button_click(res):
-    decision_type = res.component.label
-    if decision_type == 'Северяне':
-        await res.send('Вы нажали кнопку с лэйблом старт')
-    if decision_type == 'Южнане':
-        await res.send('Вы нажали кнопку с лэйблом старт')
-    if decision_type == 'Техно-гики':
-        await res.send('Вы нажали кнопку с лэйблом старт')
-    if decision_type == 'Богатая семья':
-        await res.send('Вы нажали кнопку с лэйблом старт')
-    if decision_type == 'Обычная семья':
-        await res.send('Вы нажали кнопку с лэйблом старт')
-    if decision_type == 'Бедность':
-        await res.send('Вы нажали кнопку с лэйблом старт')
+async def on_button_click(interaction):
+    decision_type = interaction.component.label
+    member = interaction.user
+    if decision_type in group_lbl_button_nation:
+        user = db_sess.query(User).filter(User.id == member.id).first()
+        user.nation = decision_type
+        await interaction.send(f"*Теперь вы пренадлежите расе **{decision_type}**!* [Это сообщение можно удалить]")
+    if decision_type in group_lbl_button_origin:
+        user = db_sess.query(User).filter(User.id == member.id).first()
+        user.origin = decision_type
+        await interaction.send(f"*Теперь вы из \"**{decision_type}**\"!* [Это сообщение можно удалить]")
+    db_sess.commit()
 
+# ФУНКЦИЯ, создающая роль определяющая создан ли профиль
+async def create_role(ctx):
+    guild = ctx.guild
+    await guild.create_role(name="Игрок", color=44444)
 
 # ФУНКЦИЯ, создающая чат с регистрацией
 async def create_registration(ctx):
@@ -80,7 +81,9 @@ async def create_registration(ctx):
     await channel.send(f"**В этом чате вы должны создать своего персонажа.** *Подходите к этому вопросу с умом!*")
 
     # ======= ВЫБОР РАСЫ
-    text = '*```yaml\n➢ От расы зависят некоторые характеристики.\n➢ [Дописать что то ещё].```*'
+    text = '*```yaml\n' \
+           '➢ От расы зависят некоторые характеристики.\n' \
+           '➢ Пока вы не завершите создание профиля вы можете перевыбирать расу.```*'
     emb = discord.Embed(title='⮮ __**Выбор расы:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
@@ -93,7 +96,9 @@ async def create_registration(ctx):
         ]
     )
     # ======= ВЫБОР ПРОИСХОЖДЕНИЯ
-    text = '*```yaml\n➢ От происхождения зависят некоторые характеристики.\n➢ [Дописать что то ещё].```*'
+    text = '*```yaml\n' \
+           '➢ От происхождения зависят некоторые характеристики.\n' \
+           '➢ Пока вы не завершите создание профиля вы можете перевыбирать происхождение.```*'
     emb = discord.Embed(title='⮮ __**Выбор происхождения:**__', color=44444)
     emb.add_field(name='**Важно:**', value=text, inline=False)
 
@@ -121,8 +126,7 @@ async def create_registration(ctx):
     # ======= ПРОЧЕЕ
     await ctx.send(f":white_check_mark: Чат регистрации создан.")
 
-
-# ФУНКЦИЯ, создающая чат с регистрацией
+# ФУНКЦИЯ, записывающая всех в базу данных
 async def create_db(ctx):
     for member in ctx.guild.members:
         if not member.bot:
@@ -141,7 +145,6 @@ async def create_db(ctx):
             db_sess.add(user)
     db_sess.commit()
 
-
 # КОМАНДА, настраивающая сервер
 @slash.slash(
     name="implement",
@@ -156,13 +159,14 @@ async def implement(ctx):
             await ctx.send(f":x: Первоначальная настройка сервера уже была произведена.")
             return
 
-    await create_registration(ctx)
-
+    await create_role(ctx)
     await create_db(ctx)
+
+    await create_registration(ctx)
 
     await ctx.send(f":white_check_mark: **Готово!**")
 
-
+# КОМАНДА, ...
 @slash.slash(
     name="open_inventory",
     description="Открыть инвентарь персонажа",
@@ -178,7 +182,6 @@ async def inventory(ctx):
     emb.add_field(name="------------", value="112", inline=False)
 
     await ctx.send(embed=emb)
-
 
 # Запуск
 DiscordComponents(client)

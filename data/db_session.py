@@ -7,7 +7,7 @@ SqlAlchemyBase = dec.declarative_base()
 
 __factory = None
 
-
+# Глобальное подключение бд
 def global_init(db_file):
     global __factory
 
@@ -27,7 +27,7 @@ def global_init(db_file):
 
     SqlAlchemyBase.metadata.create_all(engine)
 
-
+# Создание сессии
 def create_session() -> Session:
     global __factory
     return __factory()
