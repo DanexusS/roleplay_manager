@@ -53,6 +53,7 @@ async def on_ready():
 #         await member.add_roles(verif)
 #         await inter.reply(res, ephemeral = True)
 
+
 @client.event
 async def on_button_click(res):
     decision_type = res.component.label
@@ -76,7 +77,7 @@ async def create_registration(ctx):
     name = 'создание-персонажа'
     channel = await guild.create_text_channel(name)
 
-    await channel.send(f"**В этом чате вы должны создать своего персонажа.** *подходите к этому вопросу с умом!*")
+    await channel.send(f"**В этом чате вы должны создать своего персонажа.** *Подходите к этому вопросу с умом!*")
 
     # ======= ВЫБОР РАСЫ
     text = '*```yaml\n➢ От расы зависят некоторые характеристики.\n➢ [Дописать что то ещё].```*'
@@ -136,7 +137,7 @@ async def create_db(ctx):
             user.intelligence = -1
             user.dexterity = -1
             user.speed = -1
-            user.inventory = '-1'
+            user.inventory = 'item;item'
             db_sess.add(user)
     db_sess.commit()
 
@@ -160,6 +161,23 @@ async def implement(ctx):
     await create_db(ctx)
 
     await ctx.send(f":white_check_mark: **Готово!**")
+
+
+@slash.slash(
+    name="open_inventory",
+    description="Открыть инвентарь персонажа",
+    guild_ids=test_servers_id
+)
+async def inventory(ctx):
+    player = ctx.author
+    user = db_sess.query(User).filter(User.id == player.id).first()
+
+    print(user)
+
+    emb = discord.Embed(title="Инвентарь", color=0xFFFFF0)
+    emb.add_field(name="------------", value="112", inline=False)
+
+    await ctx.send(embed=emb)
 
 
 # Запуск
