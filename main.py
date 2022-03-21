@@ -76,7 +76,11 @@ async def create_role(ctx):
 async def create_registration(ctx):
     guild = ctx.guild
     name = 'создание-персонажа'
+    role = get(ctx.guild.roles, name="Игрок")
+
     channel = await guild.create_text_channel(name)
+
+    await channel.set_permissions(role, send_messages=False, read_message_history=False, read_messages=False)
 
     await channel.send(f"**В этом чате вы должны создать своего персонажа.** *Подходите к этому вопросу с умом!*")
 
@@ -121,8 +125,6 @@ async def create_registration(ctx):
 
     await channel.send(embed=emb)
 
-    # Сделать создание имени
-
     # ======= ПРОЧЕЕ
     await ctx.send(f":white_check_mark: Чат регистрации создан.")
 
@@ -158,13 +160,36 @@ async def implement(ctx):
         if channel.name == name:
             await ctx.send(f":x: Первоначальная настройка сервера уже была произведена.")
             return
-
+    # Создание специальной роли и бд
     await create_role(ctx)
     await create_db(ctx)
-
+    # Создание чата регистрации
     await create_registration(ctx)
-
+    # Уведомление о том что всё готово
     await ctx.send(f":white_check_mark: **Готово!**")
+
+# КОМАНДА, добавляющая ник и создающая профиль
+@client.command()
+async def name(ctx, *args):
+    await ctx.message.delete()
+
+    member = ctx.author
+    name = ' '.join(args)
+    user = db_sess.query(User).filter(User.id == member.id).first()
+
+    for role in member.roles:
+        if role.name == 'Игрок':
+            await member.send('**Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
+            return
+    if user.nation == '-1' or user.origin == '-1':
+        await member.send('**Вы не можете создать профиль не выбрав расу и происхождение!**')
+        return
+
+    user.name = name
+    db_sess.commit()
+    # Добавляется роль @Игрок
+    role = get(ctx.guild.roles, name="Игрок")
+    await member.add_roles(role)
 
 # КОМАНДА, ...
 @slash.slash(
