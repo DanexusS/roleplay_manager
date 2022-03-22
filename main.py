@@ -1,5 +1,6 @@
 import discord
 import json
+import os
 
 from consts import *
 from discord.ext import commands
@@ -20,7 +21,8 @@ intents.members = True
 client = commands.Bot(command_prefix=PREFIX, intents=intents, activity=activity)
 slash = SlashCommand(client, sync_commands=True)
 
-db_session.global_init("db/users.db")
+for db in DataBase:
+    db_session.global_init(f"db/{db}.db")
 db_sess = db_session.create_session()
 
 # ФУНКЦИЯ, показывающая то что бот запустился
@@ -67,19 +69,14 @@ async def on_button_click(interaction):
         await interaction.send(f"*Теперь вы из \"**{decision_type}**\"!* [Это сообщение можно удалить]")
     db_sess.commit()
 
-# ФУНКЦИЯ, создающая роль определяющая создан ли профиль
-async def create_role(ctx):
-    guild = ctx.guild
-    await guild.create_role(name="Игрок", color=44444)
+# ФУНКЦИЯ, создающая категорию "Общее"
+async def create_сategory_main(ctx, guild):
+    category = await guild.create_category(group_name_categories[0])
+    return category
 
 # ФУНКЦИЯ, создающая чат с регистрацией
-async def create_registration(ctx):
-    guild = ctx.guild
-    name = 'создание-персонажа'
-    role = get(ctx.guild.roles, name="Игрок")
-
-    channel = await guild.create_text_channel(name)
-
+async def create_registration(ctx, guild, role, category):
+    channel = await guild.create_text_channel(group_name_channels_1[0], category=category)
     await channel.set_permissions(role, send_messages=False, read_message_history=False, read_messages=False)
 
     await channel.send(f"**В этом чате вы должны создать своего персонажа.** *Подходите к этому вопросу с умом!*")
@@ -94,9 +91,9 @@ async def create_registration(ctx):
     await channel.send(
         embed=emb,
         components=[
-            [Button(style=ButtonStyle.gray, label="Северяне", emoji=client.get_emoji(emoji["north"])),
-             Button(style=ButtonStyle.gray, label="Южнане", emoji=client.get_emoji(emoji["south"])),
-             Button(style=ButtonStyle.gray, label="Техно-гики", emoji=client.get_emoji(emoji["techno"]))]
+            [Button(style=ButtonStyle.gray, label=group_lbl_button_nation[0], emoji=client.get_emoji(emoji["north"])),
+             Button(style=ButtonStyle.gray, label=group_lbl_button_nation[1], emoji=client.get_emoji(emoji["south"])),
+             Button(style=ButtonStyle.gray, label=group_lbl_button_nation[2], emoji=client.get_emoji(emoji["techno"]))]
         ]
     )
     # ======= ВЫБОР ПРОИСХОЖДЕНИЯ
@@ -109,9 +106,9 @@ async def create_registration(ctx):
     await channel.send(
         embed=emb,
         components=[
-            [Button(style=ButtonStyle.gray, label="Богатая семья", emoji=client.get_emoji(emoji["rich"])),
-             Button(style=ButtonStyle.gray, label="Обычная семья", emoji=client.get_emoji(emoji["norm"])),
-             Button(style=ButtonStyle.gray, label="Бедность", emoji=client.get_emoji(emoji["poor"]))]
+            [Button(style=ButtonStyle.gray, label=group_lbl_button_origin[0], emoji=client.get_emoji(emoji["rich"])),
+             Button(style=ButtonStyle.gray, label=group_lbl_button_origin[1], emoji=client.get_emoji(emoji["norm"])),
+             Button(style=ButtonStyle.gray, label=group_lbl_button_origin[2], emoji=client.get_emoji(emoji["poor"]))]
         ]
     )
     # ======= СОЗДАНИЕ ИМЕНИ
@@ -128,8 +125,32 @@ async def create_registration(ctx):
     # ======= ПРОЧЕЕ
     await ctx.send(f":white_check_mark: Чат регистрации создан.")
 
-# ФУНКЦИЯ, записывающая всех в базу данных
-async def create_db(ctx):
+# ФУНКЦИЯ, создающая
+async def create_info(ctx, guild, role, category):
+    channel = await guild.create_text_channel(group_name_channels_1[1], category=category)
+    await channel.set_permissions(guild.default_role, send_messages=False, read_message_history=False, read_messages=False)
+    await channel.set_permissions(role, send_messages=True, read_message_history=True, read_messages=True)
+
+    # ======= ПРОЧЕЕ
+    await ctx.send(f":white_check_mark: Чат информации создан.")
+
+# ФУНКЦИЯ, создающая магазин
+async def create_shop(ctx, guild, role, category):
+    channel = await guild.create_text_channel(group_name_channels_1[2], category=category)
+    await channel.set_permissions(guild.default_role, send_messages=False, read_message_history=False, read_messages=False)
+    await channel.set_permissions(role, send_messages=True, read_message_history=True, read_messages=True)
+
+    # ======= ПРОЧЕЕ
+    await ctx.send(f":white_check_mark: Магазин создан.")
+
+# ФУНКЦИЯ, создающая город 1 (тест)
+async def create_сategory_city(ctx):
+    pass
+
+# ФУНКЦИЯ, записывающая всех в базу данных и создающая роль определяющая создан ли профиль
+async def create_db_and_role(ctx, guild):
+    await guild.create_role(name="Игрок", color=44444)
+
     for member in ctx.guild.members:
         if not member.bot:
             user = User()
@@ -155,16 +176,47 @@ async def create_db(ctx):
 )
 async def implement(ctx):
     guild = ctx.guild
-    name = 'создание-персонажа'
     for channel in guild.channels:
-        if channel.name == name:
+        if channel.name == group_name_channels_1[0]:
             await ctx.send(f":x: Первоначальная настройка сервера уже была произведена.")
             return
     # Создание специальной роли и бд
-    await create_role(ctx)
-    await create_db(ctx)
-    # Создание чата регистрации
-    await create_registration(ctx)
+    await create_db_and_role(ctx, guild)
+    role = get(guild.roles, name="Игрок")
+    # Создание общей категории
+    category = await create_сategory_main(ctx, guild)
+    # Создание регистрации
+    await create_registration(ctx, guild, role, category)
+    # Создание чата информации
+    await create_info(ctx, guild, role, category)
+    # Создание магазина
+    await create_shop(ctx, guild, role, category)
+    # Создание города 1 (тест)
+    await create_сategory_city(ctx)
+    # Уведомление о том что всё готово
+    await ctx.send(f":white_check_mark: **Готово!**")
+
+# КОМАНДА,
+@slash.slash(
+    name="reset",
+    description="Удаляет чаты и настройку  сервера для игры!",
+    guild_ids=test_servers_id
+)
+async def reset(ctx):
+    guild = ctx.guild
+    # Список чатов категорий и тд
+    objects = [
+        get(guild.channels, name=group_name_channels_1[0]), get(guild.channels, name=group_name_channels_1[1]),
+        get(guild.channels, name=group_name_channels_1[2]), get(guild.roles, name="Игрок"),
+        get(guild.categories, name=group_name_categories[0])
+    ]
+    # Удаление чатов категорий и тд
+    for obj in objects:
+        if obj:
+            await obj.delete()
+    # Удаление базы данных
+    for db in DataBase:
+        os.remove(f"db/{db}.db")
     # Уведомление о том что всё готово
     await ctx.send(f":white_check_mark: **Готово!**")
 
