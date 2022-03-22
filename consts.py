@@ -13,10 +13,22 @@ DataBase = ['users']
 group_lbl_button_nation = ['Северяне', 'Южнане', 'Техно-гики']
 # Группа названий кнопок происхождения
 group_lbl_button_origin = ['Богатая семья', 'Обычная семья', 'Бедность']
-# Группа названий категорий
-group_name_categories = ['Общее']
-# Группа названий чатов общей категории
-group_name_channels_1 = ['создание-персонажа', 'информация', 'магазин']
+
+# non-game, game, all
+objects = {
+    "ОБЩЕЕ": {
+        "создание персонажа": {"type": "non-game", "messaging": False},
+        "информация": {"type": "game", "messaging": False},
+        "магазин": {"type": "game", "messaging": False}
+    }
+}
+
+# # Группа названий категорий
+# categories_names = ['Общее']
+# # Группа названий чатов общей категории
+# channels_names = ['создание персонажа', 'информация', 'магазин']
+
+
 # Прочее
 TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
 PREFIX = "/"
