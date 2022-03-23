@@ -4,7 +4,7 @@ import os
 
 from consts import *
 from discord.ext import commands
-from discord.ext.commands import MissingPermissions, MissingRole
+from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
@@ -92,7 +92,7 @@ async def create_db(guild):
             user.intelligence = -1
             user.dexterity = -1
             user.speed = -1
-            user.inventory = '-1'
+            user.inventory = 'item;item;item1;item;item1;item1'
             db_sess.add(user)
     db_sess.commit()
 
@@ -239,13 +239,55 @@ async def name(ctx, *args):
 
 
 @slash.slash(
+    name="add_item",
+    description="Отправить предложение обмена другому игроку",
+    options=[{"name": "item", "description": "предмет", "type": 3, "required": True}],
+    guild_ids=test_servers_id
+)
+async def add_item(ctx, item):
+    player = ctx.author
+    db_sess.query(User).filter(User.id == player.id).first().inventory += f"{item};"
+    db_sess.commit()
+    await ctx.send("Done")
+
+
+@slash.slash(
     name="trade",
     description="Отправить предложение обмена другому игроку",
+    options=[{"name": "member", "description": "пользователь", "type": 6, "required": True}],
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
-async def trade(ctx):
-    pass
+async def trade(ctx, member):
+    player = ctx.author
+    if player == member or member.bot:
+        await throw_error(ctx, 100)
+        return
+    user = db_sess.query(User).filter(User.id == player.id).first()
+    player_inventory = {}
+    for item in user.inventory.split(";"):
+        player_inventory[item] = player_inventory.get(item, 0) + 1
+
+    emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
+    buttons = [[]]
+
+    for item in player_inventory:
+        buttons[0].append(Button(style=ButtonStyle.gray, label=f"{item} x{player_inventory[item]}"))
+
+    await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
+    await ctx.channel.send(embed=emb, components=buttons)
+
+    user = db_sess.query(User).filter(User.id == member.id).first()
+    player_inventory = {}
+    for item in user.inventory.split(";"):
+        player_inventory[item] = player_inventory.get(item, 0) + 1
+
+    emb = discord.Embed(title=f"**Инвентарь игрока {member.name}**", color=0xdf213)
+    buttons = [[]]
+
+    for item in player_inventory:
+        buttons[0].append(Button(style=ButtonStyle.gray, label=f"{item} x{player_inventory[item]}"))
+    await ctx.channel.send(embed=emb, components=buttons)
 
 
 @slash.slash(
@@ -256,16 +298,21 @@ async def trade(ctx):
 @commands.has_role("Игрок")
 # КОМАНДА, открывающая инвентарь
 async def open_inventory(ctx):
+    value_emoji = client.get_emoji(emoji["money"])
     player = ctx.author
     user = db_sess.query(User).filter(User.id == player.id).first()
+    player_inventory = {}
+    for item in user.inventory.split(";"):
+        player_inventory[item] = player_inventory.get(item, 0) + 1
 
+    emb = discord.Embed(title="**˹ Инвентарь ˼**", color=0xFFFFF0)
+    for item in player_inventory:
+        price = -1
+        emb.add_field(name=f"**{item.upper()}**",
+                      value=f"Кол-во: {player_inventory[item]}\nЦена: {price} {value_emoji}",
+                      inline=True)
 
-    # print(user)
-    #
-    # emb = discord.Embed(title="Инвентарь", color=0xFFFFF0)
-    # emb.add_field(name="------------", value="112", inline=False)
-    #
-    # await ctx.send(embed=emb)
+    await ctx.send(embed=emb)
 
 
 # Обработчик ошибок
@@ -279,6 +326,8 @@ async def implementation_error(ctx, error):
 @reset.error
 async def reset_error(ctx, error):
     await ctx.message.delete()
+    if isinstance(error, CommandInvokeError):
+        pass
     if isinstance(error, MissingPermissions):
         await throw_error(ctx, 403)
 
@@ -289,14 +338,17 @@ async def inventory_error(ctx, error):
         await throw_error(ctx, 404)
 
 
+# 100 - Выбран неверный пользователь (автор или бот)
 # 403 - Нет прав для пользования командой
 # 404 - Не найдена роль
 async def throw_error(ctx, error_code):
     text = ""
-    if error_code == 403:
+    if error_code == 100:
+        text = "Выбран неверный пользователь для действия.\nНельзя выбирать ботов и самого себя!"
+    elif error_code == 403:
         text = "У вас недостаточно прав для использования этой команды  (как иронично)"
     elif error_code == 404:
-        text = f"""У вас нет роли "Игрок" для использования этой команды"""
+        text = """"У вас нет роли "Игрок" для использования этой команды"""
 
     emb = discord.Embed(title="__**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ**__", color=0xed4337)
     emb.add_field(name="**Причина:**",
