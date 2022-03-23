@@ -17,17 +17,11 @@ group_lbl_button_origin = ['Богатая семья', 'Обычная семь
 # non-game, game, all
 objects = {
     "ОБЩЕЕ": {
-        "создание персонажа": {"type": "non-game", "messaging": False},
+        "создание-персонажа": {"type": "non-game", "messaging": False},
         "информация": {"type": "game", "messaging": False},
         "магазин": {"type": "game", "messaging": False}
     }
 }
-
-# # Группа названий категорий
-# categories_names = ['Общее']
-# # Группа названий чатов общей категории
-# channels_names = ['создание персонажа', 'информация', 'магазин']
-
 
 # Прочее
 TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
