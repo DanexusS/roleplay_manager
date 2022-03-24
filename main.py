@@ -21,8 +21,7 @@ intents.members = True
 client = commands.Bot(command_prefix=PREFIX, intents=intents, activity=activity)
 slash = SlashCommand(client, sync_commands=True)
 
-for db in DataBase:
-    db_session.global_init(f"db/{db}.db")
+db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
 
 
@@ -97,20 +96,7 @@ async def create_db(guild):
     db_sess.commit()
 
 
-async def create_channel(guild, channel_info, category, title, player_role):
-    kind, allow_messaging = channel_info
-    channel = await guild.create_text_channel(title, category=category)
-
-    await channel.set_permissions(guild.default_role,
-                                  send_messages=allow_messaging,
-                                  read_messages=kind != "game" or kind == "all")
-    await channel.set_permissions(player_role,
-                                  send_messages=allow_messaging,
-                                  read_messages=kind == "game" or kind == "all")
-
-    return channel
-
-
+# ФУНКЦИЯ, отправляющаю сообщение в чат регистрации
 async def send_registration_msg(channel):
     await channel.send(f"**В этом чате вы должны создать своего персонажа.** *Подходите к этому вопросу с умом!*")
 
@@ -156,24 +142,46 @@ async def send_registration_msg(channel):
     await channel.send(embed=emb)
 
 
+# ФУНКЦИЯ, создающая чаты
+async def create_channel(guild, channel_info, category, title, roles_for_permss):
+    kind, allow_messaging = channel_info
+    channel = await guild.create_text_channel(title, category=category)
+
+    if kind != 'all':
+        for name, role in roles_for_permss.items():
+            await channel.set_permissions(role,
+                                          send_messages=allow_messaging,
+                                          read_messages=kind == name)
+
+    return channel
+
+
 # КОМАНДА, настраивающая сервер
-# @slash.slash(
-#     name="implement",
-#     description="Создаёт чаты и настраивает сервер для игры!",
-#     guild_ids=test_servers_id
-# )
 @client.command()
 @commands.has_guild_permissions(administrator=True)
 async def implement(ctx):
     await ctx.message.delete()
     guild = ctx.guild
+    # Роль обозначающая, что пользователь создал профиль
     player_role = await guild.create_role(name="Игрок", color=44444)
+    # Роли обозначающии в каком городе игрок
+    topolis_role = await guild.create_role(name="Тополис", color=16777215)
+    braifast_role = await guild.create_role(name="Браифаст", color=16777215)
+    jadiff_role = await guild.create_role(name="Джадифф", color=16777215)
+
+    roles_for_permss = {
+        "non-game": guild.default_role,
+        "game": player_role,
+        "city_topolis": topolis_role,
+        "city_braifast": braifast_role,
+        "city_jadiff": jadiff_role
+    }
 
     # Создание чатов
     for category, channels in objects.items():
         _category = await create_category(guild, category)
         for channel in channels.keys():
-            channel = await create_channel(guild, channels[channel].values(), _category, channel, player_role)
+            channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
             if channel.name == "создание-персонажа":
                 await send_registration_msg(get(guild.channels, name="создание-персонажа"))
 
@@ -183,33 +191,29 @@ async def implement(ctx):
 
 
 # КОМАНДА, удаляющая всё не нужное
-# @slash.slash(
-#     name="reset",
-#     description="Удаляет чаты и настройку  сервера для игры!",
-#     guild_ids=test_servers_id
-# )
 @client.command()
 @commands.has_guild_permissions(administrator=True)
 async def reset(ctx):
     await ctx.message.delete()
     guild = ctx.guild
     # Удаление чатов категорий и тд
-    discord_objects = [get(guild.roles, name="Игрок")]
+    discord_objects = []
     for category, channels in objects.items():
         discord_objects.append(get(guild.categories, name=category))
         for channel in channels.keys():
             discord_objects.append(get(guild.channels, name=channel))
+    for role in roles_game:
+        discord_objects.append(get(guild.roles, name=role))
 
     for discord_object in discord_objects:
         if discord_object:
             await discord_object.delete()
 
     # Удаление базы данных
-    for database in DataBase:
-        try:
-            os.remove(f"db/{database}.db")
-        except FileNotFoundError:
-            continue
+    try:
+        os.remove(f"db/DataBase.db")
+    except FileNotFoundError:
+        print('База данных не найдена!')
     # Уведомление о том что всё готово
     await ctx.send(":white_check_mark: **Готово!**")
 
@@ -218,6 +222,9 @@ async def reset(ctx):
 @client.command()
 async def name(ctx, *args):
     await ctx.message.delete()
+
+    if ctx.channel.id != get(ctx.guild.channels, name="создание-персонажа").id:
+        return
 
     member = ctx.author
     _name = ' '.join(args)
@@ -238,6 +245,7 @@ async def name(ctx, *args):
     await member.add_roles(role)
 
 
+# КОМАНДА, добавить предмет
 @slash.slash(
     name="add_item",
     description="Отправить предложение обмена другому игроку",
@@ -251,6 +259,7 @@ async def add_item(ctx, item):
     await ctx.send("Done")
 
 
+# КОМАНДА, трейд
 @slash.slash(
     name="trade",
     description="Отправить предложение обмена другому игроку",
@@ -290,13 +299,13 @@ async def trade(ctx, member):
     await ctx.channel.send(embed=emb, components=buttons)
 
 
+# КОМАНДА, открывающая инвентарь
 @slash.slash(
     name="open_inventory",
     description="Открыть инвентарь персонажа",
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
-# КОМАНДА, открывающая инвентарь
 async def open_inventory(ctx):
     value_emoji = client.get_emoji(emoji["money"])
     player = ctx.author
@@ -315,7 +324,7 @@ async def open_inventory(ctx):
     await ctx.send(embed=emb)
 
 
-# Обработчик ошибок
+# Обработчик ошибок implement
 @implement.error
 async def implementation_error(ctx, error):
     await ctx.message.delete()
@@ -323,6 +332,7 @@ async def implementation_error(ctx, error):
         await throw_error(ctx, 403)
 
 
+# Обработчик ошибок reset
 @reset.error
 async def reset_error(ctx, error):
     await ctx.message.delete()
@@ -332,6 +342,7 @@ async def reset_error(ctx, error):
         await throw_error(ctx, 403)
 
 
+# Обработчик ошибок open_inventory
 @open_inventory.error
 async def inventory_error(ctx, error):
     if isinstance(error, MissingRole):
@@ -346,9 +357,9 @@ async def throw_error(ctx, error_code):
     if error_code == 100:
         text = "Выбран неверный пользователь для действия.\nНельзя выбирать ботов и самого себя!"
     elif error_code == 403:
-        text = "У вас недостаточно прав для использования этой команды  (как иронично)"
+        text = "У вас недостаточно прав для использования этой команды. (как иронично)"
     elif error_code == 404:
-        text = """"У вас нет роли "Игрок" для использования этой команды"""
+        text = f"У вас нет роли \"Игрок\" для использования этой команды."
 
     emb = discord.Embed(title="__**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ**__", color=0xed4337)
     emb.add_field(name="**Причина:**",
