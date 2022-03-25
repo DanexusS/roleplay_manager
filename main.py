@@ -245,18 +245,27 @@ async def name(ctx, *args):
     await member.add_roles(role)
 
 
-# КОМАНДА, добавить предмет
-@slash.slash(
-    name="add_item",
-    description="Отправить предложение обмена другому игроку",
-    options=[{"name": "item", "description": "предмет", "type": 3, "required": True}],
-    guild_ids=test_servers_id
-)
+# КОМАНДА, добавляющая предмет
+# @slash.slash(
+#     name="add_item",
+#     description="Отправить предложение обмена другому игроку",
+#     options=[{"name": "item", "description": "предмет", "type": 3, "required": True}],
+#     guild_ids=test_servers_id
+# )
 async def add_item(ctx, item):
     player = ctx.author
     db_sess.query(User).filter(User.id == player.id).first().inventory += f"{item};"
     db_sess.commit()
     await ctx.send("Done")
+
+
+async def get_inventory(player_id):
+    user = db_sess.query(User).filter(User.id == player_id).first()
+    player_inventory = {}
+    for item in user.inventory.split(";"):
+        player_inventory[item] = player_inventory.get(item, 0) + 1
+
+    return player_inventory
 
 
 # КОМАНДА, трейд
@@ -266,37 +275,40 @@ async def add_item(ctx, item):
     options=[{"name": "member", "description": "пользователь", "type": 6, "required": True}],
     guild_ids=test_servers_id
 )
-@commands.has_role("Игрок")
+# @commands.has_role("Игрок")
 async def trade(ctx, member):
     player = ctx.author
     if player == member or member.bot:
         await throw_error(ctx, 100)
         return
-    user = db_sess.query(User).filter(User.id == player.id).first()
-    player_inventory = {}
-    for item in user.inventory.split(";"):
-        player_inventory[item] = player_inventory.get(item, 0) + 1
+
+    player_inventory = await get_inventory(player.id)
+    member_inventory = await get_inventory(member.id)
 
     emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
-    buttons = [[]]
-
-    for item in player_inventory:
-        buttons[0].append(Button(style=ButtonStyle.gray, label=f"{item} x{player_inventory[item]}"))
-
     await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
-    await ctx.channel.send(embed=emb, components=buttons)
+    msg = await ctx.channel.send("dfsdf")
+    await msg.add_reaction(":one:")
+    # msg = ctx.message
+    # await msg.add_reaction(":zero:")
+    # await msg.add_reaction(":one:")
+    # await msg.add_reaction(":two:")
+    # await msg.add_reaction(":three:")
+    # await msg.add_reaction(":four:")
+    # await msg.add_reaction(":five:")
+    # await msg.add_reaction(":six:")
+    # await msg.add_reaction(":seven:")
+    # await msg.add_reaction(":eight:")
+    # await msg.add_reaction(":nine:")
+    # await msg.add_reaction(":ten:")
+    # msg.add_reaction("1")
 
-    user = db_sess.query(User).filter(User.id == member.id).first()
-    player_inventory = {}
-    for item in user.inventory.split(";"):
-        player_inventory[item] = player_inventory.get(item, 0) + 1
-
-    emb = discord.Embed(title=f"**Инвентарь игрока {member.name}**", color=0xdf213)
-    buttons = [[]]
-
-    for item in player_inventory:
-        buttons[0].append(Button(style=ButtonStyle.gray, label=f"{item} x{player_inventory[item]}"))
-    await ctx.channel.send(embed=emb, components=buttons)
+    # emb = discord.Embed(title=f"**Инвентарь игрока {member.name}**", color=0xdf213)
+    # buttons = [[]]
+    #
+    # for item in player_inventory:
+    #     buttons[0].append(Button(style=ButtonStyle.gray, label=f"{item} x{player_inventory[item]}"))
+    # await ctx.channel.send(embed=emb, components=buttons)
 
 
 # КОМАНДА, открывающая инвентарь
@@ -308,11 +320,7 @@ async def trade(ctx, member):
 @commands.has_role("Игрок")
 async def open_inventory(ctx):
     value_emoji = client.get_emoji(emoji["money"])
-    player = ctx.author
-    user = db_sess.query(User).filter(User.id == player.id).first()
-    player_inventory = {}
-    for item in user.inventory.split(";"):
-        player_inventory[item] = player_inventory.get(item, 0) + 1
+    player_inventory = await get_inventory(ctx.author.id)
 
     emb = discord.Embed(title="**˹ Инвентарь ˼**", color=0xFFFFF0)
     for item in player_inventory:

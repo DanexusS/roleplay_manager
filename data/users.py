@@ -3,6 +3,7 @@ from sqlalchemy import orm
 
 from .db_session import SqlAlchemyBase
 
+
 # Таблца игроков
 class User(SqlAlchemyBase):
     __tablename__ = 'users'
