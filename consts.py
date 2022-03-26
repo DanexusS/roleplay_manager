@@ -16,21 +16,21 @@ group_lbl_button_origin = ['Богатая семья', 'Обычная семь
 # non-game, game, all, city_topolis, city_braifast, city_jadiff
 objects = {
     "ОБЩЕЕ": {
-        "создание-персонажа": {"type": "non-game", "messaging": False},
-        "информация": {"type": "game", "messaging": False},
-        "магазин": {"type": "game", "messaging": False}
+        "создание-персонажа": {"type": "non-game", "messaging": False, "position": 0},
+        "информация": {"type": "game", "messaging": False, "position": 1},
+        "магазин": {"type": "game", "messaging": False, "position": 2}
     },
     "Тополис": {
-        "доска-объявлений-т": {"type": "city_topolis", "messaging": False},
-        "таверна-т": {"type": "city_topolis", "messaging": True}
+        "доска-объявлений-т": {"type": "city_topolis", "messaging": False, "position": 0},
+        "таверна-т": {"type": "city_topolis", "messaging": True, "position": 1}
     },
     "Браифаст": {
-        "доска-объявлений-б": {"type": "city_braifast", "messaging": False},
-        "таверна-б": {"type": "city_braifast", "messaging": True}
+        "доска-объявлений-б": {"type": "city_braifast", "messaging": False, "position": 0},
+        "таверна-б": {"type": "city_braifast", "messaging": True, "position": 1}
     },
     "Джадифф": {
-        "доска-объявлений-д": {"type": "city_jadiff", "messaging": False},
-        "таверна-д": {"type": "city_jadiff", "messaging": True}
+        "доска-объявлений-д": {"type": "city_jadiff", "messaging": False, "position": 0},
+        "таверна-д": {"type": "city_jadiff", "messaging": True, "position": 1}
     }
 }
 # Роли

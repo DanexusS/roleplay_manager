@@ -76,26 +76,6 @@ async def create_category(guild, title):
     return await guild.create_category(title)
 
 
-# ФУНКЦИЯ, записывающая всех в базу данных
-async def create_db(guild):
-    for member in guild.members:
-        if not member.bot:
-            user = User()
-            user.id = member.id
-            user.name = '-1'
-            user.nation = '-1'
-            user.origin = '-1'
-            user.money = -1
-            user.health = -1
-            user.strength = -1
-            user.intelligence = -1
-            user.dexterity = -1
-            user.speed = -1
-            user.inventory = 'item;item;item1;item;item1;item1'
-            db_sess.add(user)
-    db_sess.commit()
-
-
 # ФУНКЦИЯ, отправляющаю сообщение в чат регистрации
 async def send_registration_msg(channel):
     await channel.send(f"**В этом чате вы должны создать своего персонажа.** *Подходите к этому вопросу с умом!*")
@@ -144,16 +124,69 @@ async def send_registration_msg(channel):
 
 # ФУНКЦИЯ, создающая чаты
 async def create_channel(guild, channel_info, category, title, roles_for_permss):
-    kind, allow_messaging = channel_info
-    channel = await guild.create_text_channel(title, category=category)
+    kind, allow_messaging, pos = channel_info
+    channel = None
+    if not get(guild.channels, name=title):
+        channel = await guild.create_text_channel(title, category=category, position=pos)
 
-    if kind != 'all':
-        for name, role in roles_for_permss.items():
-            await channel.set_permissions(role,
-                                          send_messages=allow_messaging,
-                                          read_messages=kind == name)
-
+        if kind != 'all':
+            for name, role in roles_for_permss.items():
+                await channel.set_permissions(role,
+                                              send_messages=allow_messaging,
+                                              read_messages=kind == name)
     return channel
+
+
+# ФУНКЦИЯ, записывающая всех с сервера в базу данных
+async def write_db(guild):
+    chek_write_db = False
+    for member in guild.members:
+        if not member.bot and not db_sess.query(User).filter(User.id == member.id).first():
+            user = User()
+            user.id = member.id
+            user.name = '-1'
+            user.nation = '-1'
+            user.origin = '-1'
+            user.money = -1
+            user.health = -1
+            user.strength = -1
+            user.intelligence = -1
+            user.dexterity = -1
+            user.speed = -1
+            user.inventory = 'item;item;item1;item;item1;item1'
+            db_sess.add(user)
+            chek_write_db = True
+    db_sess.commit()
+    return chek_write_db
+
+
+# ФУНКЦИЯ, удаляющая всех с сервера из базы данных
+async def delete_db(guild):
+    for member in guild.members:
+        user = db_sess.query(User).filter(User.id == member.id).first()
+        if not member.bot and user:
+            db_sess.delete(user)
+    db_sess.commit()
+
+
+# КОМАНДА, удаляющая всех с сервера из базы данных
+@client.command()
+@commands.has_guild_permissions(administrator=True)
+async def delete_users(ctx):
+    await ctx.message.delete()
+    guild = ctx.guild
+    chek_delete_db = False
+    for member in guild.members:
+        user = db_sess.query(User).filter(User.id == member.id).first()
+        if not member.bot and user:
+            db_sess.delete(user)
+            chek_delete_db = True
+    db_sess.commit()
+    # Уведомление
+    if chek_delete_db:
+        await ctx.send(":white_check_mark: **Готово!**")
+    else:
+        await ctx.send(":x: **Пользователей нет в базе данных!**")
 
 
 # КОМАНДА, настраивающая сервер
@@ -162,32 +195,53 @@ async def create_channel(guild, channel_info, category, title, roles_for_permss)
 async def implement(ctx):
     await ctx.message.delete()
     guild = ctx.guild
-    # Роль обозначающая, что пользователь создал профиль
-    player_role = await guild.create_role(name="Игрок", color=44444)
-    # Роли обозначающии в каком городе игрок
-    topolis_role = await guild.create_role(name="Тополис", color=16777215)
-    braifast_role = await guild.create_role(name="Браифаст", color=16777215)
-    jadiff_role = await guild.create_role(name="Джадифф", color=16777215)
+    chek_implement = False
+    color1 = 44444
+    color2 = 16777215
+    # Создание ролей
+    setting_roles = [("Игрок", color1), ("Тополис", color2), ("Браифаст", color2), ("Джадифф", color2)]
+    for name, color in setting_roles:
+        if not get(guild.roles, name=name):
+            await guild.create_role(name=name, color=color)
+            await ctx.send(f":white_check_mark: *Роль {name} создана.*")
+            chek_implement = True
 
     roles_for_permss = {
         "non-game": guild.default_role,
-        "game": player_role,
-        "city_topolis": topolis_role,
-        "city_braifast": braifast_role,
-        "city_jadiff": jadiff_role
+        "game": get(guild.roles, name="Игрок"),
+        "city_topolis": get(guild.roles, name="Тополис"),
+        "city_braifast": get(guild.roles, name="Браифаст"),
+        "city_jadiff": get(guild.roles, name="Джадифф")
     }
 
-    # Создание чатов
+    # Создание чатов и категорий
     for category, channels in objects.items():
-        _category = await create_category(guild, category)
+        # Создание категории
+        _category = get(guild.categories, name=category)
+        if not _category:
+            _category = await create_category(guild, category)
+            chek_implement = True
+        # Создание чатов
         for channel in channels.keys():
             channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
-            if channel.name == "создание-персонажа":
-                await send_registration_msg(get(guild.channels, name="создание-персонажа"))
+            if channel:
+                chek_implement = True
+                if channel.name == "создание-персонажа":
+                    await send_registration_msg(get(guild.channels, name="создание-персонажа"))
+        # Добавление чатов в категорию (сделано для повторного /implement)
+        for channel in channels.keys():
+            await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
 
-    # Создание бд
-    await create_db(guild)
-    await ctx.send(":white_check_mark: **Готово!**")
+    # Заполнение базы данных
+    if await write_db(guild):
+        await ctx.send(":white_check_mark: *База данных заполнена.*")
+        chek_implement = True
+
+    # Уведомление
+    if chek_implement:
+        await ctx.send(":white_check_mark: **Готово!**")
+    else:
+        await ctx.send(":x: **Первоначальная настройка уже была произведена!**")
 
 
 # КОМАНДА, удаляющая всё не нужное
@@ -210,11 +264,9 @@ async def reset(ctx):
             await discord_object.delete()
 
     # Удаление базы данных
-    try:
-        os.remove(f"db/DataBase.db")
-    except FileNotFoundError:
-        print('База данных не найдена!')
-    # Уведомление о том что всё готово
+    await delete_db(guild)
+
+    # Уведомление
     await ctx.send(":white_check_mark: **Готово!**")
 
 
@@ -264,7 +316,7 @@ async def get_inventory(player_id):
     player_inventory = {}
     for item in user.inventory.split(";"):
         player_inventory[item] = player_inventory.get(item, 0) + 1
-
+    db_sess.commit()
     return player_inventory
 
 
@@ -288,7 +340,7 @@ async def trade(ctx, member):
     emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
     await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
     msg = await ctx.channel.send("dfsdf")
-    await msg.add_reaction(":one:")
+    await msg.add_reaction("1️⃣")
     # msg = ctx.message
     # await msg.add_reaction(":zero:")
     # await msg.add_reaction(":one:")
