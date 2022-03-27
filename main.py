@@ -58,14 +58,16 @@ async def on_ready():
 # ФУНКЦИЯ, обрабатывающая нажатие кнопок
 @client.event
 async def on_button_click(interaction):
+    guild = interaction.guild
     decision_type = interaction.component.label
     member = interaction.user
+    id_user = f"{member.id}{guild.id}"
     if decision_type in group_lbl_button_nation:
-        user = db_sess.query(User).filter(User.id == member.id).first()
+        user = db_sess.query(User).filter(User.id == id_user).first()
         user.nation = decision_type
         await interaction.send(f"*Теперь вы пренадлежите расе **{decision_type}**!* [Это сообщение можно удалить]")
     if decision_type in group_lbl_button_origin:
-        user = db_sess.query(User).filter(User.id == member.id).first()
+        user = db_sess.query(User).filter(User.id == id_user).first()
         user.origin = decision_type
         await interaction.send(f"*Теперь вы из \"**{decision_type}**\"!* [Это сообщение можно удалить]")
     db_sess.commit()
@@ -141,9 +143,10 @@ async def create_channel(guild, channel_info, category, title, roles_for_permss)
 async def write_db(guild):
     chek_write_db = False
     for member in guild.members:
-        if not member.bot and not db_sess.query(User).filter(User.id == member.id).first():
+        id_user = f"{member.id}{guild.id}"
+        if not member.bot and not db_sess.query(User).filter(User.id == id_user).first():
             user = User()
-            user.id = member.id
+            user.id = id_user
             user.name = '-1'
             user.nation = '-1'
             user.origin = '-1'
@@ -163,7 +166,7 @@ async def write_db(guild):
 # ФУНКЦИЯ, удаляющая всех с сервера из базы данных
 async def delete_db(guild):
     for member in guild.members:
-        user = db_sess.query(User).filter(User.id == member.id).first()
+        user = db_sess.query(User).filter(User.id == f"{member.id}{guild.id}").first()
         if not member.bot and user:
             db_sess.delete(user)
     db_sess.commit()
@@ -177,7 +180,7 @@ async def delete_users(ctx):
     guild = ctx.guild
     chek_delete_db = False
     for member in guild.members:
-        user = db_sess.query(User).filter(User.id == member.id).first()
+        user = db_sess.query(User).filter(User.id == f"{member.id}{guild.id}").first()
         if not member.bot and user:
             db_sess.delete(user)
             chek_delete_db = True
@@ -215,19 +218,21 @@ async def implement(ctx):
     }
 
     # Создание чатов и категорий
-    for category, channels in objects.items():
+    for category, channels in Objects.items():
         # Создание категории
         _category = get(guild.categories, name=category)
         if not _category:
             _category = await create_category(guild, category)
+            await ctx.send(f":white_check_mark: *Категория {category} создана.*")
             chek_implement = True
         # Создание чатов
         for channel in channels.keys():
             channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
             if channel:
+                await ctx.send(f":white_check_mark: *Чат {channel.name} создан.*")
                 chek_implement = True
-                if channel.name == "создание-персонажа":
-                    await send_registration_msg(get(guild.channels, name="создание-персонажа"))
+                if channel.name == NAME_CHANNEL_REG:
+                    await send_registration_msg(get(guild.channels, name=NAME_CHANNEL_REG))
         # Добавление чатов в категорию (сделано для повторного /implement)
         for channel in channels.keys():
             await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
@@ -252,7 +257,7 @@ async def reset(ctx):
     guild = ctx.guild
     # Удаление чатов категорий и тд
     discord_objects = []
-    for category, channels in objects.items():
+    for category, channels in Objects.items():
         discord_objects.append(get(guild.categories, name=category))
         for channel in channels.keys():
             discord_objects.append(get(guild.channels, name=channel))
@@ -274,26 +279,35 @@ async def reset(ctx):
 @client.command()
 async def name(ctx, *args):
     await ctx.message.delete()
+    guild = ctx.guild
+    member = ctx.author
 
-    if ctx.channel.id != get(ctx.guild.channels, name="создание-персонажа").id:
+    # Проверка в нужном ли чате используется команда
+    name_channel = NAME_CHANNEL_REG
+    if ctx.channel.id != get(guild.channels, name=name_channel).id:
+        await member.send(f":x: **Данную команду вы можете использовать только в чате \"{name_channel}\".**")
+        return
+    # Проверка на присутствие самого имени
+    if not args:
+        await member.send(f":x: **Введите имя через пробел после команды, имя не может отсутствовать.**")
         return
 
-    member = ctx.author
     _name = ' '.join(args)
-    user = db_sess.query(User).filter(User.id == member.id).first()
+    user = db_sess.query(User).filter(User.id == f"{member.id}{guild.id}").first()
 
     for role in member.roles:
         if role.name == 'Игрок':
-            await member.send('**Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
+            await member.send(':x: **Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
             return
     if user.nation == '-1' or user.origin == '-1':
-        await member.send('**Вы не можете создать профиль не выбрав расу или происхождение!**')
+        await member.send(':x: **Вы не можете создать профиль не выбрав расу или происхождение!**')
         return
+    await member.send(':white_check_mark: **Вы успешно создали своего персонажа, удачной игры!**')
 
     user.name = _name
     db_sess.commit()
     # Добавляется роль @Игрок
-    role = get(ctx.guild.roles, name="Игрок")
+    role = get(guild.roles, name="Игрок")
     await member.add_roles(role)
 
 
@@ -305,14 +319,15 @@ async def name(ctx, *args):
 #     guild_ids=test_servers_id
 # )
 async def add_item(ctx, item):
+    guild = ctx.guild
     player = ctx.author
-    db_sess.query(User).filter(User.id == player.id).first().inventory += f"{item};"
+    db_sess.query(User).filter(User.id == f"{player.id}{guild.id}").first().inventory += f"{item};"
     db_sess.commit()
     await ctx.send("Done")
 
 
-async def get_inventory(player_id):
-    user = db_sess.query(User).filter(User.id == player_id).first()
+async def get_inventory(player_id, guild):
+    user = db_sess.query(User).filter(User.id == f"{player_id}{guild.id}").first()
     player_inventory = {}
     for item in user.inventory.split(";"):
         player_inventory[item] = player_inventory.get(item, 0) + 1
@@ -329,13 +344,14 @@ async def get_inventory(player_id):
 )
 # @commands.has_role("Игрок")
 async def trade(ctx, member):
+    guild = ctx.guild
     player = ctx.author
     if player == member or member.bot:
         await throw_error(ctx, 100)
         return
 
-    player_inventory = await get_inventory(player.id)
-    member_inventory = await get_inventory(member.id)
+    player_inventory = await get_inventory(player.id, guild)
+    member_inventory = await get_inventory(member.id, guild)
 
     emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
     await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
@@ -371,8 +387,9 @@ async def trade(ctx, member):
 )
 @commands.has_role("Игрок")
 async def open_inventory(ctx):
+    guild = ctx.guild
     value_emoji = client.get_emoji(emoji["money"])
-    player_inventory = await get_inventory(ctx.author.id)
+    player_inventory = await get_inventory(ctx.author.id, guild)
 
     emb = discord.Embed(title="**˹ Инвентарь ˼**", color=0xFFFFF0)
     for item in player_inventory:

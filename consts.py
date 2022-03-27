@@ -12,11 +12,13 @@ emoji = {
 group_lbl_button_nation = ['Северяне', 'Южнане', 'Техно-гики']
 # Группа названий кнопок происхождения
 group_lbl_button_origin = ['Богатая семья', 'Обычная семья', 'Бедность']
+# Имя чата регистрации
+NAME_CHANNEL_REG = "создание-персонажа"
 # Категории и их чаты
 # non-game, game, all, city_topolis, city_braifast, city_jadiff
-objects = {
+Objects = {
     "ОБЩЕЕ": {
-        "создание-персонажа": {"type": "non-game", "messaging": False, "position": 0},
+        NAME_CHANNEL_REG: {"type": "non-game", "messaging": False, "position": 0},
         "информация": {"type": "game", "messaging": False, "position": 1},
         "магазин": {"type": "game", "messaging": False, "position": 2}
     },
