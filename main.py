@@ -124,6 +124,25 @@ async def send_registration_msg(channel):
     await channel.send(embed=emb)
 
 
+# ФУНКЦИЯ, отправляющаю сообщение в чат информации
+async def send_information_msg(channel):
+    # ======= История
+    text = '*```yaml\n' \
+           '➢ -.```*'
+    emb = discord.Embed(title='⮮ __**История:**__', color=44444)
+    emb.add_field(name='**――**', value=text, inline=False)
+
+    await channel.send(embed=emb)
+
+    # ======= Правила
+    text = '*```yaml\n' \
+           '➢ -.```*'
+    emb = discord.Embed(title='⮮ __**Правила:**__', color=44444)
+    emb.add_field(name='**――**', value=text, inline=False)
+
+    await channel.send(embed=emb)
+
+
 # ФУНКЦИЯ, создающая чаты
 async def create_channel(guild, channel_info, category, title, roles_for_permss):
     kind, allow_messaging, pos = channel_info
@@ -231,8 +250,12 @@ async def implement(ctx):
             if channel:
                 await ctx.send(f":white_check_mark: *Чат {channel.name} создан.*")
                 chek_implement = True
-                if channel.name == NAME_CHANNEL_REG:
-                    await send_registration_msg(get(guild.channels, name=NAME_CHANNEL_REG))
+                name = "создание-персонажа"
+                if channel.name == name:
+                    await send_registration_msg(get(guild.channels, name=name))
+                name = "информация"
+                if channel.name == name:
+                    await send_information_msg(get(guild.channels, name=name))
         # Добавление чатов в категорию (сделано для повторного /implement)
         for channel in channels.keys():
             await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
@@ -283,7 +306,7 @@ async def name(ctx, *args):
     member = ctx.author
 
     # Проверка в нужном ли чате используется команда
-    name_channel = NAME_CHANNEL_REG
+    name_channel = "создание-персонажа"
     if ctx.channel.id != get(guild.channels, name=name_channel).id:
         await member.send(f":x: **Данную команду вы можете использовать только в чате \"{name_channel}\".**")
         return
