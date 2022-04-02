@@ -8,13 +8,15 @@ from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeE
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
+import asyncio
+
 from data import db_session
 from data.users import User
 
 
 test_servers_id = [936293335063232672]
 
-activity = discord.Activity(type=discord.ActivityType.listening, name="шутки про хохлов")
+activity = discord.Activity(type=discord.ActivityType.listening, name="Древнерусский рейв")
 intents = discord.Intents.default()
 intents.members = True
 
@@ -129,7 +131,7 @@ async def send_information_msg(channel):
     # ======= История
     text = '*```yaml\n' \
            '  Около века назад человечество смогло покинуть Землю и освоить Марс, на нём люди нашли руду под' \
-           'названием Экзорий. Люди тщательно изучали Экзорий, и открыли для себя много различных свойств этой руды, в' \
+           'названием Экзорий. Люди тщательно изучали Экзорий, и открыли для себя много разных свойств этой руды, в' \
            'результате многих экспериментов люди смогли извлекать из этой руды много энергии с огромной мощью. В ходе' \
            'таких открытий люди смогли быстро развить технологии и освоить космос намного лучше, человечество стало' \
            'путешествовать и колонизировать различные планеты в различных звёздных системах.' \
@@ -337,16 +339,58 @@ async def name(ctx, *args):
     await member.send(':white_check_mark: **Вы успешно создали своего персонажа, удачной игры!**')
 
     user.name = _name
-    db_sess.commit()
     # Добавляется роль @Игрок
     role = get(guild.roles, name="Игрок")
     await member.add_roles(role)
+    # Добавляется роль в зависимости от города
+    if user.nation == 'Северяне':
+        role = get(guild.roles, name="Тополис")
+    elif user.nation == 'Техно-гики':
+        role = get(guild.roles, name="Браифаст")
+    elif user.nation == 'Южнане':
+        role = get(guild.roles, name="Джадифф")
+    await member.add_roles(role)
+    db_sess.commit()
+
+
+# КОМАНДА, перемещение между городами
+@slash.slash(
+    name="move",
+    description="Отправиться в другой город!",
+    options=[{"name": "city", "description": "Роль города в который вы хотите отправиться.", "type": 8, "required": True}],
+    guild_ids=test_servers_id
+)
+async def move(ctx, city):
+    guild = ctx.guild
+    user = db_sess.query(User).filter(User.id == f"{ctx.author.id}{guild.id}").first()
+
+    if city.name in ["Тополис", "Браифаст", "Джадифф"]:
+        if city in ctx.author.roles:
+            await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
+            return
+        # Удаление роли прошлого города
+        await ctx.author.remove_roles(get(guild.roles, name="Тополис"))
+        await ctx.author.remove_roles(get(guild.roles, name="Браифаст"))
+        await ctx.author.remove_roles(get(guild.roles, name="Джадифф"))
+        time_second = 8 * (60 - int(user.speed))
+        # Уведомление
+        await ctx.send(f"**{ctx.author.mention} отправился в город {city.name}.**")
+        await ctx.author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} минут {time_second % 60} секунд.**")
+        # Таймер
+        await asyncio.sleep(time_second)
+        # Добавление роли нового города
+        await ctx.author.add_roles(city)
+        # Уведомление
+        await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{ctx.author.mention} *прибыл!*")
+        await ctx.author.send(f":white_check_mark: **С прибытием в {city.name}.**")
+    else:
+        await ctx.send(':x: **Выберите роль обозначающую город.**')
 
 
 # КОМАНДА, добавляющая предмет
 # @slash.slash(
 #     name="add_item",
-#     description="Отправить предложение обмена другому игроку",
+#     description="Отправить предложение обмена другому игроку.",
 #     options=[{"name": "item", "description": "предмет", "type": 3, "required": True}],
 #     guild_ids=test_servers_id
 # )
@@ -370,7 +414,7 @@ async def get_inventory(player_id, guild):
 # КОМАНДА, трейд
 @slash.slash(
     name="trade",
-    description="Отправить предложение обмена другому игроку",
+    description="Отправить предложение обмена другому игроку.",
     options=[{"name": "member", "description": "пользователь", "type": 6, "required": True}],
     guild_ids=test_servers_id
 )
@@ -414,7 +458,7 @@ async def trade(ctx, member):
 # КОМАНДА, открывающая инвентарь
 @slash.slash(
     name="open_inventory",
-    description="Открыть инвентарь персонажа",
+    description="Открыть инвентарь персонажа.",
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
