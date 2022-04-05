@@ -8,7 +8,7 @@ emoji = {
     "techno": 955784858804842506,
     "money": 956604076739682304
 }
-
+# Эмодзи номера
 numbers_emoji = {
     0: "0️",
     1: "1️⃣",
@@ -22,30 +22,29 @@ numbers_emoji = {
     9: "9️⃣",
     10: "🔟"
 }
-
 # Группа названий кнопок расы
 group_lbl_button_nation = ['Северяне', 'Южнане', 'Техно-гики']
 # Группа названий кнопок происхождения
 group_lbl_button_origin = ['Богатая семья', 'Обычная семья', 'Бедность']
 # Категории и их чаты
-# non-game, game, all, city_topolis, city_braifast, city_jadiff
+# non-game, game, all, city_topolis, city_braifast, city_jadiff, music
 Objects = {
     "ОБЩЕЕ": {
-        "создание-персонажа": {"type": "non-game", "messaging": False, "position": 1},
-        "информация": {"type": "game", "messaging": False, "position": 2},
-        "магазин": {"type": "game", "messaging": False, "position": 3}
+        "🚪создание-персонажа": {"type": "non-game", "messaging": False, "position": 1},
+        "📜информация": {"type": "game", "messaging": False, "position": 2},
+        "🛒магазин": {"type": "game", "messaging": False, "position": 3},
     },
     "Тополис": {
-        "доска-объявлений-т": {"type": "city_topolis", "messaging": False, "position": 1},
-        "таверна-т": {"type": "city_topolis", "messaging": True, "position": 2}
+        "📋доска-объявлений-т": {"type": "city_topolis", "messaging": False, "position": 1},
+        "🍺таверна-т": {"type": "city_topolis", "messaging": True, "position": 2}
     },
     "Браифаст": {
-        "доска-объявлений-б": {"type": "city_braifast", "messaging": False, "position": 1},
-        "таверна-б": {"type": "city_braifast", "messaging": True, "position": 2}
+        "📋доска-объявлений-б": {"type": "city_braifast", "messaging": False, "position": 1},
+        "🍺таверна-б": {"type": "city_braifast", "messaging": True, "position": 2}
     },
     "Джадифф": {
-        "доска-объявлений-д": {"type": "city_jadiff", "messaging": False, "position": 1},
-        "таверна-д": {"type": "city_jadiff", "messaging": True, "position": 2}
+        "📋доска-объявлений-д": {"type": "city_jadiff", "messaging": False, "position": 1},
+        "🍺таверна-д": {"type": "city_jadiff", "messaging": True, "position": 2}
     }
 }
 # Роли

@@ -3,7 +3,6 @@ import asyncio
 import json
 import os
 
-
 from consts import *
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
@@ -183,14 +182,13 @@ async def send_information_msg(channel):
 async def create_channel(guild, channel_info, category, title, roles_for_permss):
     kind, allow_messaging, pos = channel_info
     channel = None
+    # Создание чата
     if not get(guild.channels, name=title):
         channel = await guild.create_text_channel(title, category=category, position=pos)
-
+        # Настройка доступа к чату
         if kind != 'all':
             for name, role in roles_for_permss.items():
-                await channel.set_permissions(role,
-                                              send_messages=allow_messaging,
-                                              read_messages=kind == name)
+                await channel.set_permissions(role, send_messages=allow_messaging, read_messages=kind == name)
     return channel
 
 
@@ -251,61 +249,76 @@ async def delete_users(ctx):
 @client.command()
 @commands.has_guild_permissions(administrator=True)
 async def implement(ctx):
-    await ctx.message.delete()
-    guild = ctx.guild
-    chek_implement = False
-    color1 = 44444
-    color2 = 16777215
-    # Создание ролей
-    setting_roles = [("Игрок", color1), ("Тополис", color2), ("Браифаст", color2), ("Джадифф", color2)]
-    for name, color in setting_roles:
-        if not get(guild.roles, name=name):
-            await guild.create_role(name=name, color=color)
-            await ctx.send(f":white_check_mark: *Роль {name} создана.*")
-            chek_implement = True
-
-    roles_for_permss = {
-        "non-game": guild.default_role,
-        "game": get(guild.roles, name="Игрок"),
-        "city_topolis": get(guild.roles, name="Тополис"),
-        "city_braifast": get(guild.roles, name="Браифаст"),
-        "city_jadiff": get(guild.roles, name="Джадифф")
-    }
-
-    # Создание чатов и категорий
-    for category, channels in Objects.items():
-        # Создание категории
-        _category = get(guild.categories, name=category)
-        if not _category:
-            _category = await create_category(guild, category)
-            await ctx.send(f":white_check_mark: *Категория {category} создана.*")
-            chek_implement = True
-        # Создание чатов
-        for channel in channels.keys():
-            channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
-            if channel:
-                await ctx.send(f":white_check_mark: *Чат {channel.name} создан.*")
+    try:
+        await ctx.message.delete()
+        guild = ctx.guild
+        chek_implement = False
+        color1 = 44444
+        color2 = 16777215
+        # Создание ролей
+        setting_roles = [("Игрок", color1), ("Тополис", color2), ("Браифаст", color2), ("Джадифф", color2)]
+        for name, color in setting_roles:
+            if not get(guild.roles, name=name):
+                await guild.create_role(name=name, color=color)
+                await ctx.send(f":white_check_mark: *Роль {name} создана.*")
                 chek_implement = True
-                name = "создание-персонажа"
-                if channel.name == name:
-                    await send_registration_msg(get(guild.channels, name=name))
-                name = "информация"
-                if channel.name == name:
-                    await send_information_msg(get(guild.channels, name=name))
-        # Добавление чатов в категорию (сделано для повторного /implement)
-        for channel in channels.keys():
-            await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
 
-    # Заполнение базы данных
-    if await write_db(guild):
-        await ctx.send(":white_check_mark: *База данных заполнена.*")
-        chek_implement = True
+        roles_for_permss = {
+            "non-game": guild.default_role,
+            "game": get(guild.roles, name="Игрок"),
+            "city_topolis": get(guild.roles, name="Тополис"),
+            "city_braifast": get(guild.roles, name="Браифаст"),
+            "city_jadiff": get(guild.roles, name="Джадифф")
+        }
 
-    # Уведомление
-    if chek_implement:
-        await ctx.send(":white_check_mark: **Готово!**")
-    else:
-        await ctx.send(":x: **Первоначальная настройка уже была произведена!**")
+        # Создание чатов и категорий
+        for category, channels in Objects.items():
+            # Создание категории
+            _category = get(guild.categories, name=category)
+            if not _category:
+                _category = await create_category(guild, category)
+                chek_implement = True
+            # Создание чатов
+            for channel in channels.keys():
+                channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
+                if channel:
+                    chek_implement = True
+                    name = "🚪создание-персонажа"
+                    if channel.name == name:
+                        await send_registration_msg(get(guild.channels, name=name))
+                    name = "📜информация"
+                    if channel.name == name:
+                        await send_information_msg(get(guild.channels, name=name))
+                    name = "🛒магазин"
+                    if channel.name == name:
+                        pass
+            # Добавление чатов в категорию (сделано для повторного /implement)
+            for channel in channels.keys():
+                await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
+            # Уведомление
+            await ctx.send(f":white_check_mark: *Категория {category} создана.*")
+
+        # Создание канала для прослушивания музыки
+        name_voice = "🎶Главная тема"
+        if not get(guild.voice_channels, name=name_voice):
+            channel = await guild.create_voice_channel(name_voice,
+                                                       category=get(guild.categories, name="ОБЩЕЕ"), position=4)
+            await channel.set_permissions(roles_for_permss["non-game"], speak=False, view_channel=False)
+            await channel.set_permissions(roles_for_permss["game"], speak=False, view_channel=True)
+            chek_implement = True
+
+        # Заполнение базы данных
+        if await write_db(guild):
+            await ctx.send(":white_check_mark: *База данных заполнена.*")
+            chek_implement = True
+
+        # Уведомление
+        if chek_implement:
+            await ctx.send(":white_check_mark: **Готово!**")
+        else:
+            await ctx.send(":x: **Первоначальная настройка уже была произведена!**")
+    except:
+        await ctx.send(":x: **Ой! Что то пошло не так.**")
 
 
 # КОМАНДА, удаляющая всё не нужное
@@ -327,6 +340,9 @@ async def reset(ctx):
         if discord_object:
             await discord_object.delete()
 
+    # Удаление канала для музыки
+    await get(guild.voice_channels, name="🎶Главная тема").delete()
+
     # Удаление базы данных
     await delete_db(guild)
 
@@ -342,7 +358,7 @@ async def name(ctx, *args):
     member = ctx.author
 
     # Проверка в нужном ли чате используется команда
-    name_channel = "создание-персонажа"
+    name_channel = "🚪создание-персонажа"
     if ctx.channel.id != get(guild.channels, name=name_channel).id:
         await member.send(f":x: **Данную команду вы можете использовать только в чате \"{name_channel}\".**")
         return
