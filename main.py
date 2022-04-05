@@ -1,6 +1,8 @@
 import discord
+import asyncio
 import json
 import os
+
 
 from consts import *
 from discord.ext import commands
@@ -8,7 +10,6 @@ from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeE
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
-import asyncio
 
 from data import db_session
 from data.users import User
@@ -75,6 +76,30 @@ async def on_button_click(interaction):
     db_sess.commit()
 
 
+# ФУНКЦИЯ, обрабатывающая нажатия на реакции
+@client.event
+async def on_reaction_add(reaction, user):
+    if user.bot:
+        return
+
+    _emoji = reaction.emoji
+    if _emoji == "➡️" or _emoji == "⬅️":
+        current_page = int(reaction.message.embeds[0].fields[-1].value.split()[1])
+        next_page = current_page
+        if _emoji == "➡️":
+            next_page += 1
+        elif _emoji == "⬅️":
+            next_page -= 1
+        bot = await client.fetch_user(BOT_ID)
+        msg = reaction.message
+
+        await msg.remove_reaction(reaction.emoji, user)
+        await msg.remove_reaction(reaction.emoji, bot)
+        await msg.remove_reaction(numbers_emoji[current_page], bot)
+        await msg.add_reaction(numbers_emoji[next_page])
+        await msg.add_reaction("➡️")
+
+
 # ФУНКЦИЯ, создающая категории
 async def create_category(guild, title):
     return await guild.create_category(title)
@@ -134,7 +159,7 @@ async def send_information_msg(channel):
            'названием Экзорий. Люди тщательно изучали Экзорий, и открыли для себя много разных свойств этой руды, в' \
            'результате многих экспериментов люди смогли извлекать из этой руды много энергии с огромной мощью. В ходе' \
            'таких открытий люди смогли быстро развить технологии и освоить космос намного лучше, человечество стало' \
-           'путешествовать и колонизировать различные планеты в различных звёздных системах.' \
+           'путешествовать и колонизировать различные планеты в различных звёздных системах.\n' \
            '  Земля в своё время, к сожалению стала деградировать, из за экспериментов которые проводили на Земле и' \
            'людей отвергающих новые технологии, родная планета человечества через некоторое время стала скверным' \
            'местом. На Землю стали отправлять неугодных людей, которые совершали какие либо преступление. Уже' \
@@ -362,38 +387,34 @@ async def name(ctx, *args):
 )
 async def move(ctx, city):
     guild = ctx.guild
-    user = db_sess.query(User).filter(User.id == f"{ctx.author.id}{guild.id}").first()
+    author = ctx.author
+    user = db_sess.query(User).filter(User.id == f"{author.id}{guild.id}").first()
 
     if city.name in ["Тополис", "Браифаст", "Джадифф"]:
-        if city in ctx.author.roles:
+        if city in author.roles:
             await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
             return
         # Удаление роли прошлого города
-        await ctx.author.remove_roles(get(guild.roles, name="Тополис"))
-        await ctx.author.remove_roles(get(guild.roles, name="Браифаст"))
-        await ctx.author.remove_roles(get(guild.roles, name="Джадифф"))
+        await author.remove_roles(get(guild.roles, name="Тополис"))
+        await author.remove_roles(get(guild.roles, name="Браифаст"))
+        await author.remove_roles(get(guild.roles, name="Джадифф"))
         time_second = 8 * (60 - int(user.speed))
         # Уведомление
-        await ctx.send(f"**{ctx.author.mention} отправился в город {city.name}.**")
-        await ctx.author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} минут {time_second % 60} секунд.**")
+        await ctx.send(f"**{author.mention} отправился в город {city.name}.**")
+        await author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} "
+                          f"минут {time_second % 60} секунд.**")
         # Таймер
         await asyncio.sleep(time_second)
         # Добавление роли нового города
-        await ctx.author.add_roles(city)
+        await author.add_roles(city)
         # Уведомление
-        await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{ctx.author.mention} *прибыл!*")
-        await ctx.author.send(f":white_check_mark: **С прибытием в {city.name}.**")
+        await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{author.mention} *прибыл!*")
+        await author.send(f":white_check_mark: **С прибытием в {city.name}.**")
     else:
         await ctx.send(':x: **Выберите роль обозначающую город.**')
 
 
 # КОМАНДА, добавляющая предмет
-# @slash.slash(
-#     name="add_item",
-#     description="Отправить предложение обмена другому игроку.",
-#     options=[{"name": "item", "description": "предмет", "type": 3, "required": True}],
-#     guild_ids=test_servers_id
-# )
 async def add_item(ctx, item):
     guild = ctx.guild
     player = ctx.author
@@ -421,6 +442,7 @@ async def get_inventory(player_id, guild):
 # @commands.has_role("Игрок")
 async def trade(ctx, member):
     guild = ctx.guild
+    value_emoji = client.get_emoji(emoji["money"])
     player = ctx.author
     if player == member or member.bot:
         await throw_error(ctx, 100)
@@ -429,30 +451,21 @@ async def trade(ctx, member):
     player_inventory = await get_inventory(player.id, guild)
     member_inventory = await get_inventory(member.id, guild)
 
-    emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
+    # emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
     await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
-    msg = await ctx.channel.send("dfsdf")
-    await msg.add_reaction("1️⃣")
-    # msg = ctx.message
-    # await msg.add_reaction(":zero:")
-    # await msg.add_reaction(":one:")
-    # await msg.add_reaction(":two:")
-    # await msg.add_reaction(":three:")
-    # await msg.add_reaction(":four:")
-    # await msg.add_reaction(":five:")
-    # await msg.add_reaction(":six:")
-    # await msg.add_reaction(":seven:")
-    # await msg.add_reaction(":eight:")
-    # await msg.add_reaction(":nine:")
-    # await msg.add_reaction(":ten:")
-    # msg.add_reaction("1")
 
-    # emb = discord.Embed(title=f"**Инвентарь игрока {member.name}**", color=0xdf213)
-    # buttons = [[]]
-    #
-    # for item in player_inventory:
-    #     buttons[0].append(Button(style=ButtonStyle.gray, label=f"{item} x{player_inventory[item]}"))
-    # await ctx.channel.send(embed=emb, components=buttons)
+    emb = discord.Embed(title="**˹ Инвентарь ˼**", color=0xFFFFF0)
+    for item in player_inventory:
+        price = -1
+        emb.add_field(name=f"**{item.upper()}**",
+                      value=f"Кол-во: {player_inventory[item]}\nЦена: {price} {value_emoji}",
+                      inline=True)
+
+    emb.add_field(name="_\_\_\_\_\_\_\_\_\_\_\_\_", value="Страница 1", inline=False)
+    msg = await ctx.send(embed=emb)
+    await msg.add_reaction("⬅️")
+    await msg.add_reaction("1️⃣")
+    await msg.add_reaction("➡️")
 
 
 # КОМАНДА, открывающая инвентарь
