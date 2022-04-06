@@ -1,16 +1,18 @@
-import aiohttp
-import discord
-import asyncio
-import json
-import os
-
-from consts import *
+# Дискорд
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
-
+# Прочие библиотеки
+import aiohttp
+import discord
+import asyncio
+import json
+import os
+import youtube_dl
+# Файлы проекта
+from consts import *
 from data import db_session
 from data.users import User
 
@@ -31,7 +33,11 @@ db_sess = db_session.create_session()
 # ФУНКЦИЯ, показывающая то что бот запустился
 @client.event
 async def on_ready():
+    # Уведомление
     print("Бот запустился")
+    # Подключение к каналу "🎶Главная тема" на всех серверах
+    await channel_connection()
+
 
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
 # @slash.slash(
@@ -43,7 +49,6 @@ async def on_ready():
 # async def hi_member(ctx, member: discord.Member = None):
 #     await ctx.send(f"Hello {member.mention}")
 # ----------------------------------------------------------------------------------------------
-
 # @bot.event
 # async def on_button_click(inter):
 #
@@ -100,6 +105,32 @@ async def on_button_click(interaction):
 #         await msg.remove_reaction(numbers_emoji[current_page], bot)
 #         await msg.add_reaction(numbers_emoji[next_page])
 #         await msg.add_reaction("➡️")
+
+
+# ФУНКЦИЯ, подключение к каналу "🎶Главная тема" на всех серверах
+async def channel_connection():
+    for guild in client.guilds:
+        voice_channel = get(guild.voice_channels, name="🎶Главная тема")
+        if voice_channel:
+            try:
+                vc = await voice_channel.connect()
+            except Exception:
+                print('Уже подключен или не удалось подключиться')
+
+            # if vc.is_playing():
+            #     await ctx.send(f'{ctx.message.author.mention}, музыка уже проигрывается.')
+            #
+            # else:
+            #     # Ссылка на музыку
+            #     url = 'https://www.youtube.com/watch?v=z_HWtzUHm6s&t=1s'
+            #
+            #     player = await vc.create_ytdl_player(url)
+            #     player.start()
+            #
+            #     while vc.is_playing():
+            #         await asyncio.sleep(1)
+            #     if not vc.is_paused():
+            #         await vc.disconnect()
 
 
 # ФУНКЦИЯ, создающая категории
@@ -287,6 +318,7 @@ async def implement(ctx):
             if not _category:
                 _category = await create_category(guild, category)
                 chek_implement = True
+                await ctx.send(f":white_check_mark: *Категория {category} создана.*")
             # Создание чатов
             for channel in channels.keys():
                 channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
@@ -304,8 +336,6 @@ async def implement(ctx):
             # Добавление чатов в категорию (сделано для повторного /implement)
             for channel in channels.keys():
                 await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
-            # Уведомление
-            await ctx.send(f":white_check_mark: *Категория {category} создана.*")
 
         # Создание канала для прослушивания музыки
         name_voice = "🎶Главная тема"
@@ -321,12 +351,16 @@ async def implement(ctx):
             await ctx.send(":white_check_mark: *База данных заполнена.*")
             chek_implement = True
 
+        # Подключение к каналу "🎶Главная тема"
+        await channel_connection()
+
         # Уведомление
         if chek_implement:
             await ctx.send(":white_check_mark: **Готово!**")
         else:
             await ctx.send(":x: **Первоначальная настройка уже была произведена!**")
-    except:
+    except Exception as e:
+        print(e)
         await ctx.send(":x: **Ой! Что то пошло не так.**")
 
 

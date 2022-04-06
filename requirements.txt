@@ -1,0 +1,7 @@
+discord=1.0.1
+aiohttp=3.7.4.post0
+discord.py==1.7.3
+discord-py-slash-command=3.0.3
+dislash.py=1.4.9
+discord-components=2.1.2
+youtube-dl=2021.12.17
