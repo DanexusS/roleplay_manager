@@ -1,3 +1,4 @@
+import aiohttp
 import discord
 import asyncio
 import json
@@ -75,28 +76,30 @@ async def on_button_click(interaction):
     db_sess.commit()
 
 
-# ФУНКЦИЯ, обрабатывающая нажатия на реакции
-@client.event
-async def on_reaction_add(reaction, user):
-    if user.bot:
-        return
-
-    _emoji = reaction.emoji
-    if _emoji == "➡️" or _emoji == "⬅️":
-        current_page = int(reaction.message.embeds[0].fields[-1].value.split()[1])
-        next_page = current_page
-        if _emoji == "➡️":
-            next_page += 1
-        elif _emoji == "⬅️":
-            next_page -= 1
-        bot = await client.fetch_user(BOT_ID)
-        msg = reaction.message
-
-        await msg.remove_reaction(reaction.emoji, user)
-        await msg.remove_reaction(reaction.emoji, bot)
-        await msg.remove_reaction(numbers_emoji[current_page], bot)
-        await msg.add_reaction(numbers_emoji[next_page])
-        await msg.add_reaction("➡️")
+# # ФУНКЦИЯ, обрабатывающая нажатия на реакции
+# @client.event
+# async def on_reaction_add(reaction, user):
+#     if user.bot:
+#         return
+#
+#     _emoji = reaction.emoji
+#     if _emoji == "➡️" or _emoji == "⬅️":
+#         msg = reaction.message
+#         guild = msg.guild
+#         embed_fields = msg.embeds[0].fields
+#         current_page = int(embed_fields[-1].value.split()[1])
+#         next_page = current_page
+#         if _emoji == "➡️":
+#             next_page += 1
+#         elif _emoji == "⬅️":
+#             next_page -= 1
+#         bot = await client.fetch_user(BOT_ID)
+#
+#         await msg.remove_reaction(reaction.emoji, user)
+#         await msg.remove_reaction(reaction.emoji, bot)
+#         await msg.remove_reaction(numbers_emoji[current_page], bot)
+#         await msg.add_reaction(numbers_emoji[next_page])
+#         await msg.add_reaction("➡️")
 
 
 # ФУНКЦИЯ, создающая категории
@@ -176,6 +179,12 @@ async def send_information_msg(channel):
     emb.add_field(name='**――**', value=text, inline=False)
 
     await channel.send(embed=emb)
+
+
+@client.command()
+async def send_mission_desk(ctx):
+    c = await ctx.channel.create_webhook(name="Cool Story Bob", avatar=open("23416.jpg", mode="rb"))
+    await c.send(embed=discord.Embed(title=f"**˹ Инвентарь ˼**", color=0xFFFFF0))
 
 
 # ФУНКЦИЯ, создающая чаты
@@ -467,21 +476,21 @@ async def trade(ctx, member):
     player_inventory = await get_inventory(player.id, guild)
     member_inventory = await get_inventory(member.id, guild)
 
-    # emb = discord.Embed(title="**Ваш инвентарь**", color=0xFFFFF0)
     await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
 
-    emb = discord.Embed(title="**˹ Инвентарь ˼**", color=0xFFFFF0)
+    emb = discord.Embed(title=f"**˹ Инвентарь   {player.name}˼**", color=0xFFFFF0)
+    item_id = 1
     for item in player_inventory:
         price = -1
-        emb.add_field(name=f"**{item.upper()}**",
+        emb.add_field(name=f"**{item_id}. {item.upper()}**",
                       value=f"Кол-во: {player_inventory[item]}\nЦена: {price} {value_emoji}",
                       inline=True)
+        item_id += 1
 
-    emb.add_field(name="_\_\_\_\_\_\_\_\_\_\_\_\_", value="Страница 1", inline=False)
-    msg = await ctx.send(embed=emb)
-    await msg.add_reaction("⬅️")
-    await msg.add_reaction("1️⃣")
-    await msg.add_reaction("➡️")
+    await ctx.send(embed=emb)
+    # await msg.add_reaction("⬅️")
+    # await msg.add_reaction("1️⃣")
+    # await msg.add_reaction("➡️")
 
 
 # КОМАНДА, открывающая инвентарь
