@@ -1,17 +1,16 @@
-# Дискорд
+import os
+import json
+import asyncio
+import aiohttp
+import discord
+import youtube_dl
+
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
-# Прочие библиотеки
-import aiohttp
-import discord
-import asyncio
-import json
-import os
-import youtube_dl
-# Файлы проекта
+
 from consts import *
 from data import db_session
 from data.users import User
@@ -67,17 +66,45 @@ async def on_ready():
 @client.event
 async def on_button_click(interaction):
     guild = interaction.guild
-    decision_type = interaction.component.label
     member = interaction.user
-    id_user = f"{member.id}{guild.id}"
+    decision_type = interaction.component.label
+
+    if decision_type == "Принять обмен":
+        return
+    if decision_type == "Отклонить обмен":
+        return
+
+    id_user = f"{member.id}-{guild.id}"
     if decision_type in group_lbl_button_nation:
         user = db_sess.query(User).filter(User.id == id_user).first()
         user.nation = decision_type
         await interaction.send(f"*Теперь вы пренадлежите расе **{decision_type}**!* [Это сообщение можно удалить]")
+        return
     if decision_type in group_lbl_button_origin:
         user = db_sess.query(User).filter(User.id == id_user).first()
         user.origin = decision_type
         await interaction.send(f"*Теперь вы из \"**{decision_type}**\"!* [Это сообщение можно удалить]")
+        return
+
+    msg = interaction.message
+    embed = msg.embeds[0]
+    sender_id, other_id = map(int, embed.fields[-1].value.split("\n"))
+    if member.id != sender_id:
+        return
+
+    if decision_type == "Отправить обмен":
+        await interaction.send("Обмен отправлен! [Это сообщение можно удалить]")
+        await guild.get_member(other_id).send(
+            "Вам отправлен обмен! Детали:",
+            embed=embed,
+            components=[
+                [Button(style=ButtonStyle.green, label="Принять обмен"),
+                 Button(style=ButtonStyle.red, label="Отклонить обмен")]
+            ]
+        )
+    if decision_type == "Отменить обмен":
+        await interaction.send("Обмен отменён [Это сообщение можно удалить]")
+        await interaction.message.delete()
     db_sess.commit()
 
 
@@ -152,9 +179,9 @@ async def send_registration_msg(channel):
     await channel.send(
         embed=emb,
         components=[
-            [Button(style=ButtonStyle.gray, label=group_lbl_button_nation[0], emoji=client.get_emoji(emoji["north"])),
-             Button(style=ButtonStyle.gray, label=group_lbl_button_nation[1], emoji=client.get_emoji(emoji["south"])),
-             Button(style=ButtonStyle.gray, label=group_lbl_button_nation[2], emoji=client.get_emoji(emoji["techno"]))]
+            [Button(style=ButtonStyle.gray, label="Северяне", emoji=client.get_emoji(emoji["north"])),
+             Button(style=ButtonStyle.gray, label="Южане", emoji=client.get_emoji(emoji["south"])),
+             Button(style=ButtonStyle.gray, label="Техно-гики", emoji=client.get_emoji(emoji["techno"]))]
         ]
     )
     # ======= ВЫБОР ПРОИСХОЖДЕНИЯ
@@ -167,9 +194,9 @@ async def send_registration_msg(channel):
     await channel.send(
         embed=emb,
         components=[
-            [Button(style=ButtonStyle.gray, label=group_lbl_button_origin[0], emoji=client.get_emoji(emoji["rich"])),
-             Button(style=ButtonStyle.gray, label=group_lbl_button_origin[1], emoji=client.get_emoji(emoji["norm"])),
-             Button(style=ButtonStyle.gray, label=group_lbl_button_origin[2], emoji=client.get_emoji(emoji["poor"]))]
+            [Button(style=ButtonStyle.gray, label="Богатая семья", emoji=client.get_emoji(emoji["rich"])),
+             Button(style=ButtonStyle.gray, label="Обычная семья", emoji=client.get_emoji(emoji["norm"])),
+             Button(style=ButtonStyle.gray, label="Бедность", emoji=client.get_emoji(emoji["poor"]))]
         ]
     )
     # ======= СОЗДАНИЕ ИМЕНИ
@@ -212,12 +239,6 @@ async def send_information_msg(channel):
     await channel.send(embed=emb)
 
 
-@client.command()
-async def send_mission_desk(ctx):
-    c = await ctx.channel.create_webhook(name="Cool Story Bob", avatar=open("23416.jpg", mode="rb"))
-    await c.send(embed=discord.Embed(title=f"**˹ Инвентарь ˼**", color=0xFFFFF0))
-
-
 # ФУНКЦИЯ, создающая чаты
 async def create_channel(guild, channel_info, category, title, roles_for_permss):
     kind, allow_messaging, pos = channel_info
@@ -236,7 +257,7 @@ async def create_channel(guild, channel_info, category, title, roles_for_permss)
 async def write_db(guild):
     chek_write_db = False
     for member in guild.members:
-        id_user = f"{member.id}{guild.id}"
+        id_user = f"{member.id}-{guild.id}"
         if not member.bot and not db_sess.query(User).filter(User.id == id_user).first():
             user = User()
             user.id = id_user
@@ -259,7 +280,7 @@ async def write_db(guild):
 # ФУНКЦИЯ, удаляющая всех с сервера из базы данных
 async def delete_db(guild):
     for member in guild.members:
-        user = db_sess.query(User).filter(User.id == f"{member.id}{guild.id}").first()
+        user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
         if not member.bot and user:
             db_sess.delete(user)
     db_sess.commit()
@@ -273,7 +294,7 @@ async def delete_users(ctx):
     guild = ctx.guild
     chek_delete_db = False
     for member in guild.members:
-        user = db_sess.query(User).filter(User.id == f"{member.id}{guild.id}").first()
+        user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
         if not member.bot and user:
             db_sess.delete(user)
             chek_delete_db = True
@@ -411,7 +432,7 @@ async def name(ctx, *args):
         return
 
     _name = ' '.join(args)
-    user = db_sess.query(User).filter(User.id == f"{member.id}{guild.id}").first()
+    user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
     for role in member.roles:
         if role.name == 'Игрок':
@@ -447,7 +468,7 @@ async def name(ctx, *args):
 async def move(ctx, city):
     guild = ctx.guild
     author = ctx.author
-    user = db_sess.query(User).filter(User.id == f"{author.id}{guild.id}").first()
+    user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
 
     if city.name in ["Тополис", "Браифаст", "Джадифф"]:
         if city in author.roles:
@@ -474,16 +495,20 @@ async def move(ctx, city):
 
 
 # КОМАНДА, добавляющая предмет
-async def add_item(ctx, item):
+async def add_item(ctx, item, amount):
     guild = ctx.guild
     player = ctx.author
-    db_sess.query(User).filter(User.id == f"{player.id}{guild.id}").first().inventory += f"{item};"
+    db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory += f"{item};" * amount
     db_sess.commit()
     await ctx.send("Done")
 
 
+async def remove_item(ctx, item, amount):
+    pass
+
+
 async def get_inventory(player_id, guild):
-    user = db_sess.query(User).filter(User.id == f"{player_id}{guild.id}").first()
+    user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
     player_inventory = {}
     for item in user.inventory.split(";"):
         player_inventory[item] = player_inventory.get(item, 0) + 1
@@ -495,24 +520,73 @@ async def get_inventory(player_id, guild):
 @slash.slash(
     name="trade",
     description="Отправить предложение обмена другому игроку.",
-    options=[{"name": "member", "description": "пользователь", "type": 6, "required": True}],
+    options=[{"name": "member", "description": "пользователь", "type": 6, "required": True},
+             {"name": "your_items", "description": "Информация о ваших предметах обмена через запятую формата - "
+                                                   "ID предмета:Количество", "type": 3, "required": True},
+             {"name": "their_items", "description": "Информация о предметах обмена другого человека через запятую "
+                                                    "формата - ID предмета:Количество", "type": 3, "required": True}],
     guild_ids=test_servers_id
 )
-# @commands.has_role("Игрок")
-async def trade(ctx, member):
-    guild = ctx.guild
-    value_emoji = client.get_emoji(emoji["money"])
+@commands.has_role("Игрок")
+async def trade(ctx, member, your_items, their_items):
     player = ctx.author
     if player == member or member.bot:
         await throw_error(ctx, 100)
         return
 
+    guild = ctx.guild
     player_inventory = await get_inventory(player.id, guild)
+    player_items_list = list(player_inventory.keys())
     member_inventory = await get_inventory(member.id, guild)
+    member_items_list = list(member_inventory.keys())
+    formatted_player_offer_items = []
+    formatted_member_offer_items = []
 
-    await ctx.send(f"Выберете предметы из своего инвентаря и из инвентаря {member.mention}")
+    embed = discord.Embed(title="**˹** Предложение обмена сформировано **˼**", color=0xFFFFF0)
+    for player_offer_item_info in your_items.split(","):
+        item_id, amount = player_offer_item_info.split(":")
+        formatted_player_offer_items.append(f"{player_items_list[int(item_id) - 1]} - x{amount}")
 
-    emb = discord.Embed(title=f"**˹ Инвентарь   {player.name}˼**", color=0xFFFFF0)
+    for member_offer_item_info in their_items.split(","):
+        item_id, amount = member_offer_item_info.split(":")
+        formatted_member_offer_items.append(f"{member_items_list[int(item_id) - 1]} - x{amount}")
+
+    embed.set_author(name=f"Информация: {player.name} → {member.name}")
+    embed.add_field(name=f"Предметы {player.name}:", value="\n".join(formatted_player_offer_items))
+    embed.add_field(name=f"Предметы {member.name}:", value="\n".join(formatted_player_offer_items))
+    embed.add_field(name="_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_",
+                    value=f"{player.id}\n{member.id}", inline=False)
+
+    msg = await ctx.send("Обмен сформирован!")
+    await msg.delete()
+    await ctx.channel.send(
+        embed=embed,
+        components=[
+            [Button(style=ButtonStyle.green, label="Отправить обмен"),
+             Button(style=ButtonStyle.red, label="Отменить обмен")]
+        ]
+    )
+
+
+# КОМАНДА, открывающая инвентарь
+@slash.slash(
+    name="open_inventory",
+    description="Открыть инвентарь персонажа.",
+    options=[{"name": "member", "description": "пользователь", "type": 6, "required": False}],
+    guild_ids=test_servers_id
+)
+@commands.has_role("Игрок")
+async def open_inventory(ctx, member=None):
+    guild = ctx.guild
+    value_emoji = client.get_emoji(emoji["money"])
+    if member is None:
+        player_inventory = await get_inventory(ctx.author.id, guild)
+        _title = f"**˹ Инвентарь {ctx.author.name}˼**"
+    else:
+        player_inventory = await get_inventory(member.id, guild)
+        _title = f"**˹ Инвентарь {member.name}˼**"
+
+    emb = discord.Embed(title=_title, color=0xFFFFF0)
     item_id = 1
     for item in player_inventory:
         price = -1
@@ -520,31 +594,6 @@ async def trade(ctx, member):
                       value=f"Кол-во: {player_inventory[item]}\nЦена: {price} {value_emoji}",
                       inline=True)
         item_id += 1
-
-    await ctx.send(embed=emb)
-    # await msg.add_reaction("⬅️")
-    # await msg.add_reaction("1️⃣")
-    # await msg.add_reaction("➡️")
-
-
-# КОМАНДА, открывающая инвентарь
-@slash.slash(
-    name="open_inventory",
-    description="Открыть инвентарь персонажа.",
-    guild_ids=test_servers_id
-)
-@commands.has_role("Игрок")
-async def open_inventory(ctx):
-    guild = ctx.guild
-    value_emoji = client.get_emoji(emoji["money"])
-    player_inventory = await get_inventory(ctx.author.id, guild)
-
-    emb = discord.Embed(title="**˹ Инвентарь ˼**", color=0xFFFFF0)
-    for item in player_inventory:
-        price = -1
-        emb.add_field(name=f"**{item.upper()}**",
-                      value=f"Кол-во: {player_inventory[item]}\nЦена: {price} {value_emoji}",
-                      inline=True)
 
     await ctx.send(embed=emb)
 
