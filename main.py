@@ -1,30 +1,32 @@
-import os
-import json
-import asyncio
-import aiohttp
-import discord
-import youtube_dl
-
+# Дискорд
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
-
+from discord import FFmpegPCMAudio
+# Прочие библиотеки
+import aiohttp
+import discord
+import asyncio
+import json
+import os
+from pafy import new
+# Файлы проекта
 from consts import *
 from data import db_session
 from data.users import User
 
-
+# Сервера
 test_servers_id = [936293335063232672]
-
+# Переменные (настройка бота)
 activity = discord.Activity(type=discord.ActivityType.listening, name="Древнерусский рейв")
 intents = discord.Intents.default()
 intents.members = True
-
+# Переменные (настройка бота)
 client = commands.Bot(command_prefix=PREFIX, intents=intents, activity=activity)
 slash = SlashCommand(client, sync_commands=True)
-
+# Подключение к бд
 db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
 
@@ -140,24 +142,14 @@ async def channel_connection():
         voice_channel = get(guild.voice_channels, name="🎶Главная тема")
         if voice_channel:
             try:
-                vc = await voice_channel.connect()
-            except Exception:
-                print('Уже подключен или не удалось подключиться')
-
-            # if vc.is_playing():
-            #     await ctx.send(f'{ctx.message.author.mention}, музыка уже проигрывается.')
-            #
-            # else:
-            #     # Ссылка на музыку
-            #     url = 'https://www.youtube.com/watch?v=z_HWtzUHm6s&t=1s'
-            #
-            #     player = await vc.create_ytdl_player(url)
-            #     player.start()
-            #
-            #     while vc.is_playing():
-            #         await asyncio.sleep(1)
-            #     if not vc.is_paused():
-            #         await vc.disconnect()
+                # Подключение к каналу
+                voice = await voice_channel.connect()
+                # Включение музыки
+                video = new('https://www.youtube.com/watch?v=z_HWtzUHm6s&t=1s')
+                audio = video.getbestaudio().url
+                voice.play(FFmpegPCMAudio(audio, **ffmpeg_opts, executable="ffmpeg/bin/ffmpeg.exe"))
+            except Exception as e:
+                print(e)
 
 
 # ФУНКЦИЯ, создающая категории

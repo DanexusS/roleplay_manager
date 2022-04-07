@@ -33,8 +33,11 @@ group_lbl_button_origin = ['Богатая семья', 'Обычная семь
 Objects = json.load(open("objects.json", encoding="utf8"))
 # Роли
 roles_game = ["Игрок", "Тополис", "Браифаст", "Джадифф"]
-
 # Прочее
+ffmpeg_opts = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -stream_loop -1',
+    'options': '-vn'
+}
 TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
 PREFIX = "/"
 BOT_ID = 567332559479111740
