@@ -1,11 +1,11 @@
-aiohttp=3.7.4.post0
 discord.py=1.7.3
 discord-py-slash-command=3.0.3
 dislash.py=1.4.9
 discord-components=2.1.2
-pafy=0.5.5
 discord-interactions=0.3.0
 discord-py-interactions=4.1.0
-SQLAlchemy=1.4.32
-discord=1.7.3
 youtube-dl=2021.12.17
+SQLAlchemy~=1.4.32
+aiohttp~=3.7.4.post0
+discord~=1.7.3
+pafy~=0.5.5

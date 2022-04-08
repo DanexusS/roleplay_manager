@@ -1,18 +1,17 @@
-# Дискорд
+import os
+import json
+import asyncio
+import aiohttp
+import discord
+
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
 from discord import FFmpegPCMAudio
-# Прочие библиотеки
-import aiohttp
-import discord
-import asyncio
-import json
-import os
 from pafy import new
-# Файлы проекта
+
 from consts import *
 from data import db_session
 from data.users import User
@@ -72,8 +71,17 @@ async def on_button_click(interaction):
     decision_type = interaction.component.label
 
     if decision_type == "Принять обмен":
+        msg = interaction.message
+        embed = msg.embeds[0]
+        sender_id, other_id, guild_id = map(int, embed.fields[-1].value.split("\n"))
+        guild = client.get_guild(guild_id)
         return
     if decision_type == "Отклонить обмен":
+        msg = interaction.message
+        embed = msg.embeds[0]
+        sender_id, other_id, guild_id = map(int, embed.fields[-1].value.split("\n"))
+        guild = client.get_guild(guild_id)
+        await guild.get_member(sender_id).send(f":x: {guild.get_member(other_id).name} не принял обмен")
         return
 
     id_user = f"{member.id}-{guild.id}"
@@ -90,7 +98,7 @@ async def on_button_click(interaction):
 
     msg = interaction.message
     embed = msg.embeds[0]
-    sender_id, other_id = map(int, embed.fields[-1].value.split("\n"))
+    sender_id, other_id = map(int, embed.fields[-1].value.split("\n")[:-1])
     if member.id != sender_id:
         return
 
@@ -108,32 +116,6 @@ async def on_button_click(interaction):
         await interaction.send("Обмен отменён [Это сообщение можно удалить]")
         await interaction.message.delete()
     db_sess.commit()
-
-
-# # ФУНКЦИЯ, обрабатывающая нажатия на реакции
-# @client.event
-# async def on_reaction_add(reaction, user):
-#     if user.bot:
-#         return
-#
-#     _emoji = reaction.emoji
-#     if _emoji == "➡️" or _emoji == "⬅️":
-#         msg = reaction.message
-#         guild = msg.guild
-#         embed_fields = msg.embeds[0].fields
-#         current_page = int(embed_fields[-1].value.split()[1])
-#         next_page = current_page
-#         if _emoji == "➡️":
-#             next_page += 1
-#         elif _emoji == "⬅️":
-#             next_page -= 1
-#         bot = await client.fetch_user(BOT_ID)
-#
-#         await msg.remove_reaction(reaction.emoji, user)
-#         await msg.remove_reaction(reaction.emoji, bot)
-#         await msg.remove_reaction(numbers_emoji[current_page], bot)
-#         await msg.add_reaction(numbers_emoji[next_page])
-#         await msg.add_reaction("➡️")
 
 
 # ФУНКЦИЯ, подключение к каналу "🎶Главная тема" на всех серверах
@@ -444,7 +426,7 @@ async def name(ctx, *args):
         role = get(guild.roles, name="Тополис")
     elif user.nation == 'Техно-гики':
         role = get(guild.roles, name="Браифаст")
-    elif user.nation == 'Южнане':
+    elif user.nation == 'Южане':
         role = get(guild.roles, name="Джадифф")
     await member.add_roles(role)
     db_sess.commit()
@@ -487,16 +469,29 @@ async def move(ctx, city):
 
 
 # КОМАНДА, добавляющая предмет
-async def add_item(ctx, item, amount):
-    guild = ctx.guild
-    player = ctx.author
-    db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory += f"{item};" * amount
+async def add_item(guild, player, item, amount):
+    item_list = [item] * amount
+    db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory += ";".join(item_list)
     db_sess.commit()
-    await ctx.send("Done")
 
 
-async def remove_item(ctx, item, amount):
-    pass
+async def remove_item(guild, player, item, amount):
+    inventory = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory.split(";")
+    for _ in range(amount):
+        inventory.remove(item)
+
+
+#
+# async def add_item(ctx, item, amount):
+#     guild = ctx.guild
+#     player = ctx.author
+#     db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory += f"{item};" * amount
+#     db_sess.commit()
+#     await ctx.send("Done")
+
+
+# async def remove_item(ctx, item, amount):
+#     pass
 
 
 async def get_inventory(player_id, guild):
@@ -547,7 +542,7 @@ async def trade(ctx, member, your_items, their_items):
     embed.add_field(name=f"Предметы {player.name}:", value="\n".join(formatted_player_offer_items))
     embed.add_field(name=f"Предметы {member.name}:", value="\n".join(formatted_player_offer_items))
     embed.add_field(name="_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_",
-                    value=f"{player.id}\n{member.id}", inline=False)
+                    value=f"{player.id}\n{member.id}\n{guild.id}", inline=False)
 
     msg = await ctx.send("Обмен сформирован!")
     await msg.delete()
