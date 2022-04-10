@@ -3,18 +3,25 @@ import json
 import asyncio
 import aiohttp
 import discord
+import datetime
 
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
 from discord import FFmpegPCMAudio
+
 from pafy import new
 
 from consts import *
 from data import db_session
 from data.users import User
+
+
+# ======================================================================================================================
+# ======================================= РАЗДЕЛ С ПЕРЕМЕННЫМИ И НАСТРОЙКОЙ БОТА =======================================
+# ======================================================================================================================
 
 # Сервера
 test_servers_id = [936293335063232672]
@@ -30,15 +37,6 @@ db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
 
 
-# ФУНКЦИЯ, показывающая то что бот запустился
-@client.event
-async def on_ready():
-    # Уведомление
-    print("Бот запустился")
-    # Подключение к каналу "🎶Главная тема" на всех серверах
-    await channel_connection()
-
-
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
 # @slash.slash(
 #     name="hi_member",
@@ -48,22 +46,26 @@ async def on_ready():
 # )
 # async def hi_member(ctx, member: discord.Member = None):
 #     await ctx.send(f"Hello {member.mention}")
-# ----------------------------------------------------------------------------------------------
-# @bot.event
-# async def on_button_click(inter):
-#
-#     res = 'Вы успешно верифицировались!' # ваш вывод сообщение что человек получил роль
-#     guild = bot.get_guild(inter.guild.id)
-#
-#     if inter.component.id == "verif_button":
-#         verif = guild.get_role(id вашей роли)
-#         member = inter.author
-#         await member.add_roles(verif)
-#         await inter.reply(res, ephemeral = True)
 # ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
 
 
-# ФУНКЦИЯ, обрабатывающая нажатие кнопок
+# ======================================================================================================================
+# ================================================= РАЗДЕЛ С СОБЫТИЯМИ =================================================
+# ======================================================================================================================
+
+# СОБЫТИЕ, показывающее то что бот запустился
+@client.event
+async def on_ready():
+    # Уведомление
+    print("Бот запустился")
+    # thrd = ScheduledFunction()
+    # thrd.start()
+    await store_update_cycle()
+    # Подключение к каналу "🎶Главная тема" на всех серверах
+    await channel_connection()
+
+
+# СОБЫТИЕ, обрабатывающее нажатие кнопок
 @client.event
 async def on_button_click(interaction):
     guild = interaction.guild
@@ -118,6 +120,10 @@ async def on_button_click(interaction):
     db_sess.commit()
 
 
+# ======================================================================================================================
+# ============================ РАЗДЕЛ С КОМАНДАМИ НАСТРАИВАЮЩИМИ СЕРВЕР И ФУНКЦИЯМИ ДЛЯ НИХ ============================
+# ======================================================================================================================
+
 # ФУНКЦИЯ, подключение к каналу "🎶Главная тема" на всех серверах
 async def channel_connection():
     for guild in client.guilds:
@@ -132,11 +138,6 @@ async def channel_connection():
                 voice.play(FFmpegPCMAudio(audio, **ffmpeg_opts, executable="ffmpeg/bin/ffmpeg.exe"))
             except Exception as e:
                 print(e)
-
-
-# ФУНКЦИЯ, создающая категории
-async def create_category(guild, title):
-    return await guild.create_category(title)
 
 
 # ФУНКЦИЯ, отправляющаю сообщение в чат регистрации
@@ -213,20 +214,6 @@ async def send_information_msg(channel):
     await channel.send(embed=emb)
 
 
-# ФУНКЦИЯ, создающая чаты
-async def create_channel(guild, channel_info, category, title, roles_for_permss):
-    kind, allow_messaging, pos = channel_info
-    channel = None
-    # Создание чата
-    if not get(guild.channels, name=title):
-        channel = await guild.create_text_channel(title, category=category, position=pos)
-        # Настройка доступа к чату
-        if kind != 'all':
-            for name, role in roles_for_permss.items():
-                await channel.set_permissions(role, send_messages=allow_messaging, read_messages=kind == name)
-    return channel
-
-
 # ФУНКЦИЯ, записывающая всех с сервера в базу данных
 async def write_db(guild):
     chek_write_db = False
@@ -260,24 +247,23 @@ async def delete_db(guild):
     db_sess.commit()
 
 
-# КОМАНДА, удаляющая всех с сервера из базы данных
-@client.command()
-@commands.has_guild_permissions(administrator=True)
-async def delete_users(ctx):
-    await ctx.message.delete()
-    guild = ctx.guild
-    chek_delete_db = False
-    for member in guild.members:
-        user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
-        if not member.bot and user:
-            db_sess.delete(user)
-            chek_delete_db = True
-    db_sess.commit()
-    # Уведомление
-    if chek_delete_db:
-        await ctx.send(":white_check_mark: **Готово!**")
-    else:
-        await ctx.send(":x: **Пользователей нет в базе данных!**")
+# ФУНКЦИЯ, создающая категории
+async def create_category(guild, title):
+    return await guild.create_category(title)
+
+
+# ФУНКЦИЯ, создающая чаты
+async def create_channel(guild, channel_info, category, title, roles_for_permss):
+    kind, allow_messaging, pos = channel_info
+    channel = None
+    # Создание чата
+    if not get(guild.channels, name=title):
+        channel = await guild.create_text_channel(title, category=category, position=pos)
+        # Настройка доступа к чату
+        if kind != 'all':
+            for name, role in roles_for_permss.items():
+                await channel.set_permissions(role, send_messages=allow_messaging, read_messages=kind == name)
+    return channel
 
 
 # КОМАНДА, настраивающая сервер
@@ -359,7 +345,7 @@ async def implement(ctx):
         await ctx.send(":x: **Ой! Что то пошло не так.**")
 
 
-# КОМАНДА, удаляющая всё не нужное
+# КОМАНДА, удаляющая настройку сервера
 @client.command()
 @commands.has_guild_permissions(administrator=True)
 async def reset(ctx):
@@ -388,85 +374,46 @@ async def reset(ctx):
     await ctx.send(":white_check_mark: **Готово!**")
 
 
-# КОМАНДА, добавляющая ник и создающая профиль
+# КОМАНДА, удаляющая всех с сервера из базы данных
 @client.command()
-async def name(ctx, *args):
+@commands.has_guild_permissions(administrator=True)
+async def delete_users(ctx):
     await ctx.message.delete()
     guild = ctx.guild
-    member = ctx.author
-
-    # Проверка в нужном ли чате используется команда
-    name_channel = "🚪создание-персонажа"
-    if ctx.channel.id != get(guild.channels, name=name_channel).id:
-        await member.send(f":x: **Данную команду вы можете использовать только в чате \"{name_channel}\".**")
-        return
-    # Проверка на присутствие самого имени
-    if not args:
-        await member.send(f":x: **Введите имя через пробел после команды, имя не может отсутствовать.**")
-        return
-
-    _name = ' '.join(args)
-    user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
-
-    for role in member.roles:
-        if role.name == 'Игрок':
-            await member.send(':x: **Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
-            return
-    if user.nation == '-1' or user.origin == '-1':
-        await member.send(':x: **Вы не можете создать профиль не выбрав расу или происхождение!**')
-        return
-    await member.send(':white_check_mark: **Вы успешно создали своего персонажа, удачной игры!**')
-
-    user.name = _name
-    # Добавляется роль @Игрок
-    role = get(guild.roles, name="Игрок")
-    await member.add_roles(role)
-    # Добавляется роль в зависимости от города
-    if user.nation == 'Северяне':
-        role = get(guild.roles, name="Тополис")
-    elif user.nation == 'Техно-гики':
-        role = get(guild.roles, name="Браифаст")
-    elif user.nation == 'Южане':
-        role = get(guild.roles, name="Джадифф")
-    await member.add_roles(role)
+    chek_delete_db = False
+    for member in guild.members:
+        user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
+        if not member.bot and user:
+            db_sess.delete(user)
+            chek_delete_db = True
     db_sess.commit()
-
-
-# КОМАНДА, перемещение между городами
-@slash.slash(
-    name="move",
-    description="Отправиться в другой город!",
-    options=[{"name": "city", "description": "Роль города в который вы хотите отправиться.", "type": 8, "required": True}],
-    guild_ids=test_servers_id
-)
-async def move(ctx, city):
-    guild = ctx.guild
-    author = ctx.author
-    user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
-
-    if city.name in ["Тополис", "Браифаст", "Джадифф"]:
-        if city in author.roles:
-            await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
-            return
-        # Удаление роли прошлого города
-        await author.remove_roles(get(guild.roles, name="Тополис"))
-        await author.remove_roles(get(guild.roles, name="Браифаст"))
-        await author.remove_roles(get(guild.roles, name="Джадифф"))
-        time_second = 8 * (60 - int(user.speed))
-        # Уведомление
-        await ctx.send(f"**{author.mention} отправился в город {city.name}.**")
-        await author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} "
-                          f"минут {time_second % 60} секунд.**")
-        # Таймер
-        await asyncio.sleep(time_second)
-        # Добавление роли нового города
-        await author.add_roles(city)
-        # Уведомление
-        await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{author.mention} *прибыл!*")
-        await author.send(f":white_check_mark: **С прибытием в {city.name}.**")
+    # Уведомление
+    if chek_delete_db:
+        await ctx.send(":white_check_mark: **Готово!**")
     else:
-        await ctx.send(':x: **Выберите роль обозначающую город.**')
+        await ctx.send(":x: **Пользователей нет в базе данных!**")
 
+
+# ======================================================================================================================
+# ========================================= РАЗДЕЛ С ФУНКЦИЯМИ ДЛЯ МАГАЗИНА ============================================
+# ======================================================================================================================
+
+# ФУНКЦИЯ, обновляющая магазин
+async def store_update():
+    print('111')
+
+
+# ФУНКЦИЯ, проверяющая нужно ли обновить магазин
+async def store_update_cycle():
+    while True:
+        if datetime.datetime.now().strftime("%H:%M") == "21:10":
+            await store_update()
+        await asyncio.sleep(60)
+
+
+# ======================================================================================================================
+# =================================== РАЗДЕЛ С КОМАНДАМИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЁМ ===================================
+# ======================================================================================================================
 
 # КОМАНДА, добавляющая предмет
 async def add_item(guild, player, item, amount):
@@ -481,7 +428,7 @@ async def remove_item(guild, player, item, amount):
         inventory.remove(item)
 
 
-#
+# # КОМАНДА, добавляющая предмет
 # async def add_item(ctx, item, amount):
 #     guild = ctx.guild
 #     player = ctx.author
@@ -585,6 +532,94 @@ async def open_inventory(ctx, member=None):
     await ctx.send(embed=emb)
 
 
+# ======================================================================================================================
+# ====================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ ========================================
+# ======================================================================================================================
+
+# КОМАНДА, добавляющая ник и создающая профиль
+@client.command()
+async def name(ctx, *args):
+    await ctx.message.delete()
+    guild = ctx.guild
+    member = ctx.author
+
+    # Проверка в нужном ли чате используется команда
+    name_channel = "🚪создание-персонажа"
+    if ctx.channel.id != get(guild.channels, name=name_channel).id:
+        await member.send(f":x: **Данную команду вы можете использовать только в чате \"{name_channel}\".**")
+        return
+    # Проверка на присутствие самого имени
+    if not args:
+        await member.send(f":x: **Введите имя через пробел после команды, имя не может отсутствовать.**")
+        return
+
+    _name = ' '.join(args)
+    user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
+
+    for role in member.roles:
+        if role.name == 'Игрок':
+            await member.send(':x: **Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
+            return
+    if user.nation == '-1' or user.origin == '-1':
+        await member.send(':x: **Вы не можете создать профиль не выбрав расу или происхождение!**')
+        return
+    await member.send(':white_check_mark: **Вы успешно создали своего персонажа, удачной игры!**')
+
+    user.name = _name
+    # Добавляется роль @Игрок
+    role = get(guild.roles, name="Игрок")
+    await member.add_roles(role)
+    # Добавляется роль в зависимости от города
+    if user.nation == 'Северяне':
+        role = get(guild.roles, name="Тополис")
+    elif user.nation == 'Техно-гики':
+        role = get(guild.roles, name="Браифаст")
+    elif user.nation == 'Южане':
+        role = get(guild.roles, name="Джадифф")
+    await member.add_roles(role)
+    db_sess.commit()
+
+
+# КОМАНДА, перемещение между городами
+@slash.slash(
+    name="move",
+    description="Отправиться в другой город!",
+    options=[{"name": "city", "description": "Роль города в который вы хотите пойти.", "type": 8, "required": True}],
+    guild_ids=test_servers_id
+)
+async def move(ctx, city):
+    guild = ctx.guild
+    author = ctx.author
+    user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
+
+    if city.name in ["Тополис", "Браифаст", "Джадифф"]:
+        if city in author.roles:
+            await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
+            return
+        # Удаление роли прошлого города
+        await author.remove_roles(get(guild.roles, name="Тополис"))
+        await author.remove_roles(get(guild.roles, name="Браифаст"))
+        await author.remove_roles(get(guild.roles, name="Джадифф"))
+        time_second = 8 * (60 - int(user.speed))
+        # Уведомление
+        await ctx.send(f"**{author.mention} отправился в город {city.name}.**")
+        await author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} "
+                          f"минут {time_second % 60} секунд.**")
+        # Таймер
+        await asyncio.sleep(time_second)
+        # Добавление роли нового города
+        await author.add_roles(city)
+        # Уведомление
+        await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{author.mention} *прибыл!*")
+        await author.send(f":white_check_mark: **С прибытием в {city.name}.**")
+    else:
+        await ctx.send(':x: **Выберите роль обозначающую город.**')
+
+
+# ======================================================================================================================
+# =========================================== РАЗДЕЛ С ОБРАБОТЧИКАМИ ОШИБОК ============================================
+# ======================================================================================================================
+
 # Обработчик ошибок implement
 @implement.error
 async def implementation_error(ctx, error):
@@ -629,6 +664,9 @@ async def throw_error(ctx, error_code):
     await ctx.send(embed=emb)
 
 
-# Запуск
+# ======================================================================================================================
+# ==================================================== ЗАПУСК БОТА =====================================================
+# ======================================================================================================================
+
 DiscordComponents(client)
 client.run(TOKEN)
