@@ -5,7 +5,7 @@ import aiohttp
 import discord
 import datetime
 
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
 from discord.utils import get
 from discord_slash import SlashCommand
@@ -19,9 +19,11 @@ from data import db_session
 from data.users import User
 
 
-# ======================================================================================================================
-# ======================================= РАЗДЕЛ С ПЕРЕМЕННЫМИ И НАСТРОЙКОЙ БОТА =======================================
-# ======================================================================================================================
+"""
+====================================================================================================================
+====================================== РАЗДЕЛ С ПЕРЕМЕННЫМИ И НАСТРОЙКОЙ БОТА ======================================
+====================================================================================================================
+"""
 
 # Сервера
 test_servers_id = [936293335063232672]
@@ -37,21 +39,19 @@ db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
 
 
-# ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
-# @slash.slash(
-#     name="hi_member",
-#     description="says hi1",
-#     options=[{"name": "member", "description": "пользователь", "type": 6, "required": True}],
-#     guild_ids=[server_id]
-# )
-# async def hi_member(ctx, member: discord.Member = None):
-#     await ctx.send(f"Hello {member.mention}")
-# ----------------------------------------ПРИМЕР-КОМАНДЫ----------------------------------------
+"""
+====================================================================================================================
+================================================ РАЗДЕЛ С СОБЫТИЯМИ ================================================
+====================================================================================================================
+"""
 
 
-# ======================================================================================================================
-# ================================================= РАЗДЕЛ С СОБЫТИЯМИ =================================================
-# ======================================================================================================================
+@client.event
+async def on_command_error(ctx, error):
+    await ctx.message.delete()
+    if isinstance(error, commands.CommandNotFound):
+        await throw_error(ctx, 105)
+
 
 # СОБЫТИЕ, показывающее то что бот запустился
 @client.event
@@ -68,8 +68,6 @@ async def on_ready():
 # СОБЫТИЕ, обрабатывающее нажатие кнопок
 @client.event
 async def on_button_click(interaction):
-    guild = interaction.guild
-    member = interaction.user
     decision_type = interaction.component.label
 
     if decision_type == "Принять обмен":
@@ -77,6 +75,21 @@ async def on_button_click(interaction):
         embed = msg.embeds[0]
         sender_id, other_id, guild_id = map(int, embed.fields[-1].value.split("\n"))
         guild = client.get_guild(guild_id)
+        sender_items = embed.fields[0].value
+        other_items = embed.fields[1].value
+
+        for line in sender_items.split("\n"):
+            sender_item = line.split()[0]
+            await remove_item(guild, sender_id, sender_item)
+            await add_item(guild, other_id, sender_item)
+        for line in other_items.split("\n"):
+            other_item = line.split()[0]
+            await remove_item(guild, other_id, other_item)
+            await add_item(guild, sender_id, other_item)
+
+        await guild.get_member(other_id).send("Done!")
+        await guild.get_member(sender_id).send("Done!")
+        await msg.delete()
         return
     if decision_type == "Отклонить обмен":
         msg = interaction.message
@@ -84,8 +97,11 @@ async def on_button_click(interaction):
         sender_id, other_id, guild_id = map(int, embed.fields[-1].value.split("\n"))
         guild = client.get_guild(guild_id)
         await guild.get_member(sender_id).send(f":x: {guild.get_member(other_id).name} не принял обмен")
+        await msg.delete()
         return
 
+    guild = interaction.guild
+    member = interaction.user
     id_user = f"{member.id}-{guild.id}"
     if decision_type in group_lbl_button_nation:
         user = db_sess.query(User).filter(User.id == id_user).first()
@@ -120,9 +136,12 @@ async def on_button_click(interaction):
     db_sess.commit()
 
 
-# ======================================================================================================================
-# ============================ РАЗДЕЛ С КОМАНДАМИ НАСТРАИВАЮЩИМИ СЕРВЕР И ФУНКЦИЯМИ ДЛЯ НИХ ============================
-# ======================================================================================================================
+"""
+====================================================================================================================
+=========================== РАЗДЕЛ С КОМАНДАМИ НАСТРАИВАЮЩИМИ СЕРВЕР И ФУНКЦИЯМИ ДЛЯ НИХ ===========================
+====================================================================================================================
+"""
+
 
 # ФУНКЦИЯ, подключение к каналу "🎶Главная тема" на всех серверах
 async def channel_connection():
@@ -261,8 +280,8 @@ async def create_channel(guild, channel_info, category, title, roles_for_permss)
         channel = await guild.create_text_channel(title, category=category, position=pos)
         # Настройка доступа к чату
         if kind != 'all':
-            for name, role in roles_for_permss.items():
-                await channel.set_permissions(role, send_messages=allow_messaging, read_messages=kind == name)
+            for _name, role in roles_for_permss.items():
+                await channel.set_permissions(role, send_messages=allow_messaging, read_messages=kind == _name)
     return channel
 
 
@@ -278,10 +297,10 @@ async def implement(ctx):
         color2 = 16777215
         # Создание ролей
         setting_roles = [("Игрок", color1), ("Тополис", color2), ("Браифаст", color2), ("Джадифф", color2)]
-        for name, color in setting_roles:
-            if not get(guild.roles, name=name):
-                await guild.create_role(name=name, color=color)
-                await ctx.send(f":white_check_mark: *Роль {name} создана.*")
+        for _name, color in setting_roles:
+            if not get(guild.roles, name=_name):
+                await guild.create_role(name=_name, color=color)
+                await ctx.send(f":white_check_mark: *Роль {_name} создана.*")
                 chek_implement = True
 
         roles_for_permss = {
@@ -305,14 +324,14 @@ async def implement(ctx):
                 channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
                 if channel:
                     chek_implement = True
-                    name = "🚪создание-персонажа"
-                    if channel.name == name:
-                        await send_registration_msg(get(guild.channels, name=name))
-                    name = "📜информация"
-                    if channel.name == name:
-                        await send_information_msg(get(guild.channels, name=name))
-                    name = "🛒магазин"
-                    if channel.name == name:
+                    _name = "🚪создание-персонажа"
+                    if channel.name == _name:
+                        await send_registration_msg(get(guild.channels, name=_name))
+                    _name = "📜информация"
+                    if channel.name == _name:
+                        await send_information_msg(get(guild.channels, name=_name))
+                    _name = "🛒магазин"
+                    if channel.name == _name:
                         pass
             # Добавление чатов в категорию (сделано для повторного /implement)
             for channel in channels.keys():
@@ -394,9 +413,12 @@ async def delete_users(ctx):
         await ctx.send(":x: **Пользователей нет в базе данных!**")
 
 
-# ======================================================================================================================
-# ========================================= РАЗДЕЛ С ФУНКЦИЯМИ ДЛЯ МАГАЗИНА ============================================
-# ======================================================================================================================
+"""
+====================================================================================================================
+========================================= РАЗДЕЛ С ФУНКЦИЯМИ ДЛЯ МАГАЗИНА ==========================================
+====================================================================================================================
+"""
+
 
 # ФУНКЦИЯ, обновляющая магазин
 async def store_update():
@@ -411,34 +433,25 @@ async def store_update_cycle():
         await asyncio.sleep(60)
 
 
-# ======================================================================================================================
-# =================================== РАЗДЕЛ С КОМАНДАМИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЁМ ===================================
-# ======================================================================================================================
+"""
+====================================================================================================================
+================================== РАЗДЕЛ С КОМАНДАМИ ВЗАИМОДЕЙСТВИЯ С ИНВЕНТАРЁМ ==================================
+====================================================================================================================
+"""
+
 
 # КОМАНДА, добавляющая предмет
-async def add_item(guild, player, item, amount):
-    item_list = [item] * amount
-    db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory += ";".join(item_list)
+async def add_item(guild, player_id, item):
+    db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first().inventory += f"{item};"
     db_sess.commit()
 
 
-async def remove_item(guild, player, item, amount):
-    inventory = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory.split(";")
-    for _ in range(amount):
-        inventory.remove(item)
-
-
-# # КОМАНДА, добавляющая предмет
-# async def add_item(ctx, item, amount):
-#     guild = ctx.guild
-#     player = ctx.author
-#     db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().inventory += f"{item};" * amount
-#     db_sess.commit()
-#     await ctx.send("Done")
-
-
-# async def remove_item(ctx, item, amount):
-#     pass
+async def remove_item(guild, player_id, item):
+    user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
+    inventory_list = user.inventory.split(";")
+    inventory_list.remove(item)
+    user.inventory = ";".join(inventory_list)
+    db_sess.commit()
 
 
 async def get_inventory(player_id, guild):
@@ -446,7 +459,6 @@ async def get_inventory(player_id, guild):
     player_inventory = {}
     for item in user.inventory.split(";"):
         player_inventory[item] = player_inventory.get(item, 0) + 1
-    db_sess.commit()
     return player_inventory
 
 
@@ -532,9 +544,12 @@ async def open_inventory(ctx, member=None):
     await ctx.send(embed=emb)
 
 
-# ======================================================================================================================
-# ====================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ ========================================
-# ======================================================================================================================
+"""
+====================================================================================================================
+===================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ =======================================
+====================================================================================================================
+"""
+
 
 # КОМАНДА, добавляющая ник и создающая профиль
 @client.command()
@@ -616,9 +631,12 @@ async def move(ctx, city):
         await ctx.send(':x: **Выберите роль обозначающую город.**')
 
 
-# ======================================================================================================================
-# =========================================== РАЗДЕЛ С ОБРАБОТЧИКАМИ ОШИБОК ============================================
-# ======================================================================================================================
+"""
+====================================================================================================================
+========================================== РАЗДЕЛ С ОБРАБОТЧИКАМИ ОШИБОК ===========================================
+====================================================================================================================
+"""
+
 
 # Обработчик ошибок implement
 @implement.error
@@ -652,6 +670,8 @@ async def throw_error(ctx, error_code):
     text = ""
     if error_code == 100:
         text = "Выбран неверный пользователь для действия.\nНельзя выбирать ботов и самого себя!"
+    elif error_code == 105:
+        text = f"Неверная команда! Для получения списка команд достаточно нажать \"{PREFIX}\""
     elif error_code == 403:
         text = "У вас недостаточно прав для использования этой команды. (как иронично)"
     elif error_code == 404:
@@ -664,9 +684,11 @@ async def throw_error(ctx, error_code):
     await ctx.send(embed=emb)
 
 
-# ======================================================================================================================
-# ==================================================== ЗАПУСК БОТА =====================================================
-# ======================================================================================================================
+"""
+====================================================================================================================
+=================================================== ЗАПУСК БОТА ====================================================
+====================================================================================================================
+"""
 
 DiscordComponents(client)
 client.run(TOKEN)
