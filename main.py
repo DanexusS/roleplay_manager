@@ -25,6 +25,7 @@ from data.users import User
 ====================================================================================================================
 """
 
+
 # Сервера
 test_servers_id = [936293335063232672]
 # Переменные (настройка бота)
@@ -44,13 +45,6 @@ db_sess = db_session.create_session()
 ================================================ РАЗДЕЛ С СОБЫТИЯМИ ================================================
 ====================================================================================================================
 """
-
-
-@client.event
-async def on_command_error(ctx, error):
-    await ctx.message.delete()
-    if isinstance(error, commands.CommandNotFound):
-        await throw_error(ctx, 105)
 
 
 # СОБЫТИЕ, показывающее то что бот запустился
@@ -134,6 +128,14 @@ async def on_button_click(interaction):
         await interaction.send("Обмен отменён [Это сообщение можно удалить]")
         await interaction.message.delete()
     db_sess.commit()
+
+
+# СОБЫТИЕ, ...
+@client.event
+async def on_command_error(ctx, error):
+    await ctx.message.delete()
+    if isinstance(error, commands.CommandNotFound):
+        await throw_error(ctx, 105)
 
 
 """
@@ -422,13 +424,31 @@ async def delete_users(ctx):
 
 # ФУНКЦИЯ, обновляющая магазин
 async def store_update():
-    print('111')
+    for guild in client.guilds:
+        store_channel = get(guild.channels, name="🛒магазин")
+        if store_channel:
+            # Удаление сообщений
+            await store_channel.purge(limit=None)
+            # Embed сообщения
+            text = '*```yaml\n' \
+                   '123.```*'
+            emb = discord.Embed(title='⮮ __**МАГАЗИН:**__', color=44444)
+            emb.add_field(name='**123:**', value=text, inline=False)
+            # Отправка сообщения
+            await store_channel.send(
+                embed=emb,
+                components=[
+                    [Button(style=ButtonStyle.gray, label="1", emoji=client.get_emoji(emoji["north"])),
+                     Button(style=ButtonStyle.gray, label="2", emoji=client.get_emoji(emoji["south"])),
+                     Button(style=ButtonStyle.gray, label="3", emoji=client.get_emoji(emoji["techno"]))]
+                ]
+            )
 
 
 # ФУНКЦИЯ, проверяющая нужно ли обновить магазин
 async def store_update_cycle():
     while True:
-        if datetime.datetime.now().strftime("%H:%M") == "21:10":
+        if datetime.datetime.now().strftime("%H:%M") == "18:00":
             await store_update()
         await asyncio.sleep(60)
 
