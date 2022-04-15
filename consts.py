@@ -10,6 +10,7 @@ emoji = {
     "techno": 955784858804842506,
     "money": 956604076739682304
 }
+
 # Эмодзи номера
 numbers_emoji = {
     0: "0️",
@@ -24,15 +25,20 @@ numbers_emoji = {
     9: "9️⃣",
     10: "🔟"
 }
+
 # Группа названий кнопок расы
 group_lbl_button_nation = ['Северяне', 'Южане', 'Техно-гики']
+
 # Группа названий кнопок происхождения
 group_lbl_button_origin = ['Богатая семья', 'Обычная семья', 'Бедность']
+
 # Категории и их чаты
 # types = non-game, game, all, city_topolis, city_braifast, city_jadiff, music
 Objects = json.load(open("objects.json", encoding="utf8"))
+
 # Роли
 roles_game = ["Игрок", "Тополис", "Браифаст", "Джадифф"]
+
 # Прочее
 ffmpeg_opts = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -stream_loop -1',

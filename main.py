@@ -72,14 +72,16 @@ async def on_button_click(interaction):
         sender_items = embed.fields[0].value
         other_items = embed.fields[1].value
 
-        for line in sender_items.split("\n"):
-            sender_item = line.split()[0]
-            await remove_item(guild, sender_id, sender_item)
-            await add_item(guild, other_id, sender_item)
-        for line in other_items.split("\n"):
-            other_item = line.split()[0]
-            await remove_item(guild, other_id, other_item)
-            await add_item(guild, sender_id, other_item)
+        if sender_items != "Целое ничего":
+            for line in sender_items.split("\n"):
+                sender_item = line.split()[0]
+                await remove_item(guild, sender_id, sender_item)
+                await add_item(guild, other_id, sender_item)
+        if other_items != "Целое ничего":
+            for line in other_items.split("\n"):
+                other_item = line.split()[0]
+                await remove_item(guild, other_id, other_item)
+                await add_item(guild, sender_id, other_item)
 
         await guild.get_member(other_id).send("Done!")
         await guild.get_member(sender_id).send("Done!")
@@ -130,7 +132,7 @@ async def on_button_click(interaction):
     db_sess.commit()
 
 
-# СОБЫТИЕ, ...
+# СОБЫТИЕ, перехватывающее неверную команду
 @client.event
 async def on_command_error(ctx, error):
     await ctx.message.delete()
@@ -438,9 +440,9 @@ async def store_update():
             await store_channel.send(
                 embed=emb,
                 components=[
-                    [Button(style=ButtonStyle.gray, label="1", emoji=client.get_emoji(emoji["north"])),
-                     Button(style=ButtonStyle.gray, label="2", emoji=client.get_emoji(emoji["south"])),
-                     Button(style=ButtonStyle.gray, label="3", emoji=client.get_emoji(emoji["techno"]))]
+                    [Button(style=ButtonStyle.gray, label="1"),
+                     Button(style=ButtonStyle.gray, label="2"),
+                     Button(style=ButtonStyle.gray, label="3")]
                 ]
             )
 
@@ -462,7 +464,7 @@ async def store_update_cycle():
 
 # КОМАНДА, добавляющая предмет
 async def add_item(guild, player_id, item):
-    db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first().inventory += f"{item};"
+    db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first().inventory += f";{item}"
     db_sess.commit()
 
 
@@ -488,38 +490,43 @@ async def get_inventory(player_id, guild):
     description="Отправить предложение обмена другому игроку.",
     options=[{"name": "member", "description": "пользователь", "type": 6, "required": True},
              {"name": "your_items", "description": "Информация о ваших предметах обмена через запятую формата - "
-                                                   "ID предмета:Количество", "type": 3, "required": True},
+                                                   "ID предмета:Количество", "type": 3, "required": False},
              {"name": "their_items", "description": "Информация о предметах обмена другого человека через запятую "
-                                                    "формата - ID предмета:Количество", "type": 3, "required": True}],
+                                                    "формата - ID предмета:Количество", "type": 3, "required": False}],
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
-async def trade(ctx, member, your_items, their_items):
+async def trade(ctx, member, your_items=None, their_items=None):
     player = ctx.author
-    if player == member or member.bot:
+    guild = ctx.guild
+    if player == member or member.bot or get(guild.roles, name="Игрок") not in member.roles:
         await throw_error(ctx, 100)
         return
+    if not your_items and not their_items:
+        await throw_error(ctx, 15)
 
-    guild = ctx.guild
-    player_inventory = await get_inventory(player.id, guild)
-    player_items_list = list(player_inventory.keys())
-    member_inventory = await get_inventory(member.id, guild)
-    member_items_list = list(member_inventory.keys())
-    formatted_player_offer_items = []
-    formatted_member_offer_items = []
+    formatted_player_offer_items = ["Целое ничего"]
+    formatted_member_offer_items = ["Целое ничего"]
+
+    if your_items:
+        player_inventory = await get_inventory(player.id, guild)
+        player_items_list = list(player_inventory.keys())
+        formatted_player_offer_items = []
+        for player_offer_item_info in your_items.split(","):
+            item_id, amount = player_offer_item_info.split(":")
+            formatted_player_offer_items.append(f"{player_items_list[int(item_id) - 1]} - x{amount}")
+    if their_items:
+        member_inventory = await get_inventory(member.id, guild)
+        member_items_list = list(member_inventory.keys())
+        formatted_member_offer_items = []
+        for member_offer_item_info in their_items.split(","):
+            item_id, amount = member_offer_item_info.split(":")
+            formatted_member_offer_items.append(f"{member_items_list[int(item_id) - 1]} - x{amount}")
 
     embed = discord.Embed(title="**˹** Предложение обмена сформировано **˼**", color=0xFFFFF0)
-    for player_offer_item_info in your_items.split(","):
-        item_id, amount = player_offer_item_info.split(":")
-        formatted_player_offer_items.append(f"{player_items_list[int(item_id) - 1]} - x{amount}")
-
-    for member_offer_item_info in their_items.split(","):
-        item_id, amount = member_offer_item_info.split(":")
-        formatted_member_offer_items.append(f"{member_items_list[int(item_id) - 1]} - x{amount}")
-
     embed.set_author(name=f"Информация: {player.name} → {member.name}")
     embed.add_field(name=f"Предметы {player.name}:", value="\n".join(formatted_player_offer_items))
-    embed.add_field(name=f"Предметы {member.name}:", value="\n".join(formatted_player_offer_items))
+    embed.add_field(name=f"Предметы {member.name}:", value="\n".join(formatted_member_offer_items))
     embed.add_field(name="_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_",
                     value=f"{player.id}\n{member.id}\n{guild.id}", inline=False)
 
@@ -544,20 +551,20 @@ async def trade(ctx, member, your_items, their_items):
 @commands.has_role("Игрок")
 async def open_inventory(ctx, member=None):
     guild = ctx.guild
-    value_emoji = client.get_emoji(emoji["money"])
-    if member is None:
-        player_inventory = await get_inventory(ctx.author.id, guild)
-        _title = f"**˹ Инвентарь {ctx.author.name}˼**"
-    else:
-        player_inventory = await get_inventory(member.id, guild)
-        _title = f"**˹ Инвентарь {member.name}˼**"
+    if member.bot or get(guild.roles, name="Игрок") not in member.roles:
+        await throw_error(ctx, 100)
+        return
 
-    emb = discord.Embed(title=_title, color=0xFFFFF0)
+    value_emoji = client.get_emoji(emoji["money"])
+    player = member if not member else ctx.author
+    player_inventory = await get_inventory(player.id, guild)
+    emb = discord.Embed(title=f"**˹ Инвентарь {player.name}˼**", color=0xFFFFF0)
+
     item_id = 1
-    for item in player_inventory:
+    for item, amount in player_inventory.items():
         price = -1
         emb.add_field(name=f"**{item_id}. {item.upper()}**",
-                      value=f"Кол-во: {player_inventory[item]}\nЦена: {price} {value_emoji}",
+                      value=f"Кол-во: {amount}\nЦена: {price} {value_emoji}",
                       inline=True)
         item_id += 1
 
@@ -622,6 +629,7 @@ async def name(ctx, *args):
     options=[{"name": "city", "description": "Роль города в который вы хотите пойти.", "type": 8, "required": True}],
     guild_ids=test_servers_id
 )
+@commands.has_role("Игрок")
 async def move(ctx, city):
     guild = ctx.guild
     author = ctx.author
@@ -658,7 +666,30 @@ async def move(ctx, city):
 """
 
 
-# Обработчик ошибок implement
+# # ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ
+# 15 - Отправлен пустой обмен
+# 100 - Выбран неверный пользователь (автор или бот)
+# 105 - Команда не найдена
+# 403 - Нет прав для пользования командой
+# 404 - Не найдена роль
+
+
+# Обработчик ошибок функции move
+@move.error
+async def move_error(ctx, error):
+    if isinstance(error, MissingRole):
+        await throw_error(ctx, 404)
+
+
+# Обработчик ошибок функции trade
+@trade.error
+async def trade_error(ctx, error):
+    if isinstance(error, MissingRole):
+        await throw_error(ctx, 404)
+    print(error)
+
+
+# Обработчик ошибок функции implement
 @implement.error
 async def implementation_error(ctx, error):
     await ctx.message.delete()
@@ -666,7 +697,7 @@ async def implementation_error(ctx, error):
         await throw_error(ctx, 403)
 
 
-# Обработчик ошибок reset
+# Обработчик ошибок функции reset
 @reset.error
 async def reset_error(ctx, error):
     await ctx.message.delete()
@@ -676,19 +707,19 @@ async def reset_error(ctx, error):
         await throw_error(ctx, 403)
 
 
-# Обработчик ошибок open_inventory
+# Обработчик ошибок функции open_inventory
 @open_inventory.error
 async def inventory_error(ctx, error):
     if isinstance(error, MissingRole):
         await throw_error(ctx, 404)
 
 
-# 100 - Выбран неверный пользователь (автор или бот)
-# 403 - Нет прав для пользования командой
-# 404 - Не найдена роль
 async def throw_error(ctx, error_code):
     text = ""
-    if error_code == 100:
+    if error_code == 15:
+        text = "Не стоит отправлять пустые обмены.\nЕсли у вас нечего отправить другому человеку," \
+               " то стоит поиграть немного и заработать немного предметов!"
+    elif error_code == 100:
         text = "Выбран неверный пользователь для действия.\nНельзя выбирать ботов и самого себя!"
     elif error_code == 105:
         text = f"Неверная команда! Для получения списка команд достаточно нажать \"{PREFIX}\""
@@ -705,9 +736,7 @@ async def throw_error(ctx, error_code):
 
 
 """
-====================================================================================================================
-=================================================== ЗАПУСК БОТА ====================================================
-====================================================================================================================
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ЗАПУСК БОТА -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 """
 
 DiscordComponents(client)
