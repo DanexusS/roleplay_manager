@@ -1,5 +1,6 @@
 import os
 import json
+import base64
 import asyncio
 import aiohttp
 import discord
@@ -484,6 +485,17 @@ async def get_inventory(player_id, guild):
     return player_inventory
 
 
+async def get_formatted_items(player_id, guild, items):
+    player_inventory = await get_inventory(player_id, guild)
+    player_items_list = list(player_inventory.keys())
+    formatted_items = []
+    for item_info in items.split(","):
+        item_id, amount = item_info.split(":")
+        formatted_items.append(f"{player_items_list[int(item_id) - 1]} - x{amount}")
+
+    return formatted_items
+
+
 # КОМАНДА, трейд
 @slash.slash(
     name="trade",
@@ -504,31 +516,22 @@ async def trade(ctx, member, your_items=None, their_items=None):
         return
     if not your_items and not their_items:
         await throw_error(ctx, 15)
+        return
 
-    formatted_player_offer_items = ["Целое ничего"]
-    formatted_member_offer_items = ["Целое ничего"]
+    formatted_player_offer_items = ["Целое ничего"] if not your_items else \
+        await get_formatted_items(player.id, guild, your_items)
 
-    if your_items:
-        player_inventory = await get_inventory(player.id, guild)
-        player_items_list = list(player_inventory.keys())
-        formatted_player_offer_items = []
-        for player_offer_item_info in your_items.split(","):
-            item_id, amount = player_offer_item_info.split(":")
-            formatted_player_offer_items.append(f"{player_items_list[int(item_id) - 1]} - x{amount}")
-    if their_items:
-        member_inventory = await get_inventory(member.id, guild)
-        member_items_list = list(member_inventory.keys())
-        formatted_member_offer_items = []
-        for member_offer_item_info in their_items.split(","):
-            item_id, amount = member_offer_item_info.split(":")
-            formatted_member_offer_items.append(f"{member_items_list[int(item_id) - 1]} - x{amount}")
+    formatted_member_offer_items = ["Целое ничего"] if not their_items else \
+        await get_formatted_items(member.id, guild, their_items)
 
     embed = discord.Embed(title="**˹** Предложение обмена сформировано **˼**", color=0xFFFFF0)
-    embed.set_author(name=f"Информация: {player.name} → {member.name}")
-    embed.add_field(name=f"Предметы {player.name}:", value="\n".join(formatted_player_offer_items))
-    embed.add_field(name=f"Предметы {member.name}:", value="\n".join(formatted_member_offer_items))
-    embed.add_field(name="_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_\\_",
-                    value=f"{player.id}\n{member.id}\n{guild.id}", inline=False)
+    encoded_data = base64.b64encode(f"{player.id};{member.id};{guild.id}".encode("UTF-8"))
+    extra_info = str(encoded_data)[2:-1]
+
+    embed.set_author(name=f"Информация:{player.name}\t→\t{member.name}")
+    embed.add_field(name=f"Предметы\t{player.name}:", value="\n".join(formatted_player_offer_items))
+    embed.add_field(name=f"Предметы\t{member.name}:", value="\n".join(formatted_member_offer_items))
+    embed.set_footer(text=extra_info)
 
     msg = await ctx.send("Обмен сформирован!")
     await msg.delete()
