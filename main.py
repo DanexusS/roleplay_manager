@@ -5,6 +5,7 @@ import asyncio
 import aiohttp
 import discord
 import datetime
+import random
 
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
@@ -18,6 +19,7 @@ from pafy import new
 from consts import *
 from data import db_session
 from data.users import User
+from data.items import Items
 
 
 """
@@ -359,6 +361,9 @@ async def implement(ctx):
         # Подключение к каналу "🎶Главная тема"
         await channel_connection()
 
+        # Создание магазина
+        await store_update(guild)
+
         # Уведомление
         if chek_implement:
             await ctx.send(":white_check_mark: **Готово!**")
@@ -426,33 +431,37 @@ async def delete_users(ctx):
 
 
 # ФУНКЦИЯ, обновляющая магазин
-async def store_update():
-    for guild in client.guilds:
-        store_channel = get(guild.channels, name="🛒магазин")
-        if store_channel:
-            # Удаление сообщений
-            await store_channel.purge(limit=None)
-            # Embed сообщения
-            text = '*```yaml\n' \
-                   '123.```*'
-            emb = discord.Embed(title='⮮ __**МАГАЗИН:**__', color=44444)
-            emb.add_field(name='**123:**', value=text, inline=False)
-            # Отправка сообщения
-            await store_channel.send(
-                embed=emb,
-                components=[
-                    [Button(style=ButtonStyle.gray, label="1"),
-                     Button(style=ButtonStyle.gray, label="2"),
-                     Button(style=ButtonStyle.gray, label="3")]
-                ]
+async def store_update(guild):
+    store_channel = get(guild.channels, name="🛒магазин")
+    if store_channel:
+        # Удаление сообщений
+        await store_channel.purge(limit=None)
+        # Список предметов которые будут продаваться
+        items = db_sess.query(Items).all()
+        items = [items.pop(random.randint(0, len(items) - 1)) for i in range(random.randint(4, 5))]
+        # Embed сообщения
+        emb = discord.Embed(title='⮮ __**МАГАЗИН:**__', color=44444)
+        for item in items:
+            emoji_money = client.get_emoji(emoji["money"])
+            emb.add_field(
+                name=f"**{item.name}:**",
+                value=f"```yaml\nТип: {item.type}; Цена: {item.price}{emoji_money}```", inline=False
             )
+        # Кнопки для покупки
+        btns = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
+        # Отправка сообщения
+        await store_channel.send(
+            embed=emb,
+            components=[btns]
+        )
 
 
 # ФУНКЦИЯ, проверяющая нужно ли обновить магазин
 async def store_update_cycle():
     while True:
         if datetime.datetime.now().strftime("%H:%M") == "18:00":
-            await store_update()
+            for guild in client.guilds:
+                await store_update(guild)
         await asyncio.sleep(60)
 
 
