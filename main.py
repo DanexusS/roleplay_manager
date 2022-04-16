@@ -7,7 +7,7 @@ import discord
 import datetime
 
 from discord.ext import commands
-from discord.ext.commands import MissingPermissions, MissingRole, CommandInvokeError
+from discord.ext.commands import MissingPermissions, MissingRole
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
@@ -15,6 +15,7 @@ from discord import FFmpegPCMAudio
 
 from pafy import new
 
+from discord_exceptions import *
 from consts import *
 from data import db_session
 from data.users import User
@@ -48,7 +49,7 @@ db_sess = db_session.create_session()
 """
 
 
-# СОБЫТИЕ, показывающее то что бот запустился
+# СОБЫТИЕ, показывающее то, что бот запустился
 @client.event
 async def on_ready():
     # Уведомление
@@ -68,21 +69,19 @@ async def on_button_click(interaction):
     if decision_type == "Принять обмен":
         msg = interaction.message
         embed = msg.embeds[0]
-        sender_id, other_id, guild_id = map(int, embed.fields[-1].value.split("\n"))
+
+        footer_text = embed.footer.text.split("\n")[1]
+        data = str(base64.b64decode(footer_text))[2:-1]
+        sender_id, other_id, guild_id = map(int, data.split(";"))
+
         guild = client.get_guild(guild_id)
         sender_items = embed.fields[0].value
         other_items = embed.fields[1].value
 
         if sender_items != "Целое ничего":
-            for line in sender_items.split("\n"):
-                sender_item = line.split()[0]
-                await remove_item(guild, sender_id, sender_item)
-                await add_item(guild, other_id, sender_item)
+            await swap_items(guild, sender_items, sender_id, other_id)
         if other_items != "Целое ничего":
-            for line in other_items.split("\n"):
-                other_item = line.split()[0]
-                await remove_item(guild, other_id, other_item)
-                await add_item(guild, sender_id, other_item)
+            await swap_items(guild, other_items, sender_id, other_id)
 
         await guild.get_member(other_id).send("Done!")
         await guild.get_member(sender_id).send("Done!")
@@ -91,8 +90,13 @@ async def on_button_click(interaction):
     if decision_type == "Отклонить обмен":
         msg = interaction.message
         embed = msg.embeds[0]
-        sender_id, other_id, guild_id = map(int, embed.fields[-1].value.split("\n"))
+
+        footer_text = embed.footer.text.split("\n")[1]
+        data = str(base64.b64decode(footer_text))[2:-1]
+        sender_id, other_id, guild_id = map(int, data.split(";"))
+
         guild = client.get_guild(guild_id)
+
         await guild.get_member(sender_id).send(f":x: {guild.get_member(other_id).name} не принял обмен")
         await msg.delete()
         return
@@ -100,25 +104,37 @@ async def on_button_click(interaction):
     guild = interaction.guild
     member = interaction.user
     id_user = f"{member.id}-{guild.id}"
+
     if decision_type in group_lbl_button_nation:
         user = db_sess.query(User).filter(User.id == id_user).first()
         user.nation = decision_type
+
         await interaction.send(f"*Теперь вы пренадлежите расе **{decision_type}**!* [Это сообщение можно удалить]")
+        db_sess.commit()
         return
+
     if decision_type in group_lbl_button_origin:
         user = db_sess.query(User).filter(User.id == id_user).first()
         user.origin = decision_type
+
         await interaction.send(f"*Теперь вы из \"**{decision_type}**\"!* [Это сообщение можно удалить]")
+        db_sess.commit()
         return
 
     msg = interaction.message
     embed = msg.embeds[0]
-    sender_id, other_id = map(int, embed.fields[-1].value.split("\n")[:-1])
+    footer_text = embed.footer.text.split("\n")[1]
+    data = str(base64.b64decode(footer_text))[2:-1]
+    sender_id, other_id = map(int, data.split(";")[:-1])
+
     if member.id != sender_id:
         return
 
     if decision_type == "Отправить обмен":
         await interaction.send("Обмен отправлен! [Это сообщение можно удалить]")
+        await interaction.message.delete()
+
+        embed.title = "᲼᲼᲼᲼᲼᲼᲼᲼**˹** Вам было отправлено предложение обмена **˼**"
         await guild.get_member(other_id).send(
             "Вам отправлен обмен! Детали:",
             embed=embed,
@@ -130,7 +146,6 @@ async def on_button_click(interaction):
     if decision_type == "Отменить обмен":
         await interaction.send("Обмен отменён [Это сообщение можно удалить]")
         await interaction.message.delete()
-    db_sess.commit()
 
 
 # СОБЫТИЕ, перехватывающее неверную команду
@@ -138,7 +153,7 @@ async def on_button_click(interaction):
 async def on_command_error(ctx, error):
     await ctx.message.delete()
     if isinstance(error, commands.CommandNotFound):
-        await throw_error(ctx, 105)
+        await throw_error(ctx, error)
 
 
 """
@@ -294,79 +309,70 @@ async def create_channel(guild, channel_info, category, title, roles_for_permss)
 @client.command()
 @commands.has_guild_permissions(administrator=True)
 async def implement(ctx):
-    try:
-        await ctx.message.delete()
-        guild = ctx.guild
-        chek_implement = False
-        color1 = 44444
-        color2 = 16777215
-        # Создание ролей
-        setting_roles = [("Игрок", color1), ("Тополис", color2), ("Браифаст", color2), ("Джадифф", color2)]
-        for _name, color in setting_roles:
-            if not get(guild.roles, name=_name):
-                await guild.create_role(name=_name, color=color)
-                await ctx.send(f":white_check_mark: *Роль {_name} создана.*")
-                chek_implement = True
+    await ctx.message.delete()
+    guild = ctx.guild
+    check_implement = False
 
-        roles_for_permss = {
-            "non-game": guild.default_role,
-            "game": get(guild.roles, name="Игрок"),
-            "city_topolis": get(guild.roles, name="Тополис"),
-            "city_braifast": get(guild.roles, name="Браифаст"),
-            "city_jadiff": get(guild.roles, name="Джадифф")
-        }
+    # Создание ролей
+    for _name, color in roles_game.items():
+        if not get(guild.roles, name=_name):
+            await guild.create_role(name=_name, color=color)
+            await ctx.send(f":white_check_mark: *Роль {_name} создана.*")
+            check_implement = True
 
-        # Создание чатов и категорий
-        for category, channels in Objects.items():
-            # Создание категории
-            _category = get(guild.categories, name=category)
-            if not _category:
-                _category = await create_category(guild, category)
-                chek_implement = True
-                await ctx.send(f":white_check_mark: *Категория {category} создана.*")
-            # Создание чатов
-            for channel in channels.keys():
-                channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
-                if channel:
-                    chek_implement = True
-                    _name = "🚪создание-персонажа"
-                    if channel.name == _name:
-                        await send_registration_msg(get(guild.channels, name=_name))
-                    _name = "📜информация"
-                    if channel.name == _name:
-                        await send_information_msg(get(guild.channels, name=_name))
-                    _name = "🛒магазин"
-                    if channel.name == _name:
-                        pass
-            # Добавление чатов в категорию (сделано для повторного /implement)
-            for channel in channels.keys():
-                await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
+    roles_for_permss = {
+        "non-game": guild.default_role,
+        "game": get(guild.roles, name="Игрок"),
+        "city_topolis": get(guild.roles, name="Тополис"),
+        "city_braifast": get(guild.roles, name="Браифаст"),
+        "city_jadiff": get(guild.roles, name="Джадифф")
+    }
 
-        # Создание канала для прослушивания музыки
-        name_voice = "🎶Главная тема"
-        if not get(guild.voice_channels, name=name_voice):
-            channel = await guild.create_voice_channel(name_voice,
-                                                       category=get(guild.categories, name="ОБЩЕЕ"), position=4)
-            await channel.set_permissions(roles_for_permss["non-game"], speak=False, view_channel=False)
-            await channel.set_permissions(roles_for_permss["game"], speak=False, view_channel=True)
-            chek_implement = True
+    # Создание чатов и категорий
+    for category, channels in Objects.items():
+        # Создание категории
+        _category = get(guild.categories, name=category)
+        if not _category:
+            _category = await create_category(guild, category)
+            check_implement = True
+            await ctx.send(f":white_check_mark: *Категория {category} создана.*")
+        # Создание чатов
+        for channel in channels.keys():
+            channel = await create_channel(guild, channels[channel].values(), _category, channel, roles_for_permss)
+            if channel:
+                check_implement = True
+                if channel.name == "🚪создание-персонажа":
+                    await send_registration_msg(get(guild.channels, name="🚪создание-персонажа"))
+                if channel.name == "📜информация":
+                    await send_information_msg(get(guild.channels, name="📜информация"))
+                if channel.name == "🛒магазин":
+                    pass
+        # Добавление чатов в категорию (сделано для повторного /implement)
+        for channel in channels.keys():
+            await get(guild.channels, name=channel).edit(category=_category, position=channels[channel]["position"])
 
-        # Заполнение базы данных
-        if await write_db(guild):
-            await ctx.send(":white_check_mark: *База данных заполнена.*")
-            chek_implement = True
+    # Создание канала для прослушивания музыки
+    name_voice = "🎶Главная тема"
+    if not get(guild.voice_channels, name=name_voice):
+        channel = await guild.create_voice_channel(name_voice,
+                                                   category=get(guild.categories, name="ОБЩЕЕ"), position=4)
+        await channel.set_permissions(roles_for_permss["non-game"], speak=False, view_channel=False)
+        await channel.set_permissions(roles_for_permss["game"], speak=False, view_channel=True)
+        check_implement = True
 
-        # Подключение к каналу "🎶Главная тема"
-        await channel_connection()
+    # Заполнение базы данных
+    if await write_db(guild):
+        await ctx.send(":white_check_mark: *База данных заполнена.*")
+        check_implement = True
 
-        # Уведомление
-        if chek_implement:
-            await ctx.send(":white_check_mark: **Готово!**")
-        else:
-            await ctx.send(":x: **Первоначальная настройка уже была произведена!**")
-    except Exception as e:
-        print(e)
-        await ctx.send(":x: **Ой! Что то пошло не так.**")
+    # Подключение к каналу "🎶Главная тема"
+    await channel_connection()
+
+    # Уведомление
+    if check_implement:
+        await ctx.send(":white_check_mark: **Готово!**")
+    else:
+        await ctx.send(":x: **Первоначальная настройка уже была произведена!**")
 
 
 # КОМАНДА, удаляющая настройку сервера
@@ -496,6 +502,13 @@ async def get_formatted_items(player_id, guild, items):
     return formatted_items
 
 
+async def swap_items(guild, items, sender_id, other_id):
+    for line in items.split("\n"):
+        item = line.split()[0]
+        await remove_item(guild, sender_id, item)
+        await add_item(guild, other_id, item)
+
+
 # КОМАНДА, трейд
 @slash.slash(
     name="trade",
@@ -512,11 +525,9 @@ async def trade(ctx, member, your_items=None, their_items=None):
     player = ctx.author
     guild = ctx.guild
     if player == member or member.bot or get(guild.roles, name="Игрок") not in member.roles:
-        await throw_error(ctx, 100)
-        return
+        raise IncorrectUser
     if not your_items and not their_items:
-        await throw_error(ctx, 15)
-        return
+        raise IncompleteTrade
 
     formatted_player_offer_items = ["Целое ничего"] if not your_items else \
         await get_formatted_items(player.id, guild, your_items)
@@ -524,14 +535,14 @@ async def trade(ctx, member, your_items=None, their_items=None):
     formatted_member_offer_items = ["Целое ничего"] if not their_items else \
         await get_formatted_items(member.id, guild, their_items)
 
-    embed = discord.Embed(title="**˹** Предложение обмена сформировано **˼**", color=0xFFFFF0)
+    embed = discord.Embed(title="᲼᲼᲼᲼᲼᲼᲼᲼**˹** Предложение обмена сформировано **˼**", color=0xFFFFF0)
     encoded_data = base64.b64encode(f"{player.id};{member.id};{guild.id}".encode("UTF-8"))
     extra_info = str(encoded_data)[2:-1]
 
-    embed.set_author(name=f"Информация:{player.name}\t→\t{member.name}")
+    embed.set_author(name=f"Информация: {player.name}\t→\t{member.name}")
     embed.add_field(name=f"Предметы\t{player.name}:", value="\n".join(formatted_player_offer_items))
     embed.add_field(name=f"Предметы\t{member.name}:", value="\n".join(formatted_member_offer_items))
-    embed.set_footer(text=extra_info)
+    embed.set_footer(text=f"┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈\n{extra_info}")
 
     msg = await ctx.send("Обмен сформирован!")
     await msg.delete()
@@ -555,8 +566,7 @@ async def trade(ctx, member, your_items=None, their_items=None):
 async def open_inventory(ctx, member=None):
     guild = ctx.guild
     if member.bot or get(guild.roles, name="Игрок") not in member.roles:
-        await throw_error(ctx, 100)
-        return
+        raise IncorrectUser
 
     value_emoji = client.get_emoji(emoji["money"])
     player = member if not member else ctx.author
@@ -669,71 +679,62 @@ async def move(ctx, city):
 """
 
 
-# # ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ
-# 15 - Отправлен пустой обмен
-# 100 - Выбран неверный пользователь (автор или бот)
-# 105 - Команда не найдена
-# 403 - Нет прав для пользования командой
-# 404 - Не найдена роль
-
-
 # Обработчик ошибок функции move
 @move.error
 async def move_error(ctx, error):
-    if isinstance(error, MissingRole):
-        await throw_error(ctx, 404)
+    await throw_error(ctx, error)
 
 
 # Обработчик ошибок функции trade
 @trade.error
 async def trade_error(ctx, error):
-    if isinstance(error, MissingRole):
-        await throw_error(ctx, 404)
-    print(error)
+    await throw_error(ctx, error)
 
 
 # Обработчик ошибок функции implement
 @implement.error
 async def implementation_error(ctx, error):
     await ctx.message.delete()
-    if isinstance(error, MissingPermissions):
-        await throw_error(ctx, 403)
+    await throw_error(ctx, error)
 
 
 # Обработчик ошибок функции reset
 @reset.error
 async def reset_error(ctx, error):
     await ctx.message.delete()
-    if isinstance(error, CommandInvokeError):
-        pass
-    if isinstance(error, MissingPermissions):
-        await throw_error(ctx, 403)
+    await throw_error(ctx, error)
 
 
 # Обработчик ошибок функции open_inventory
 @open_inventory.error
 async def inventory_error(ctx, error):
-    if isinstance(error, MissingRole):
-        await throw_error(ctx, 404)
+    await throw_error(ctx, error)
 
 
-async def throw_error(ctx, error_code):
+async def throw_error(ctx, error):
     text = ""
-    if error_code == 15:
-        text = "Не стоит отправлять пустые обмены.\nЕсли у вас нечего отправить другому человеку," \
-               " то стоит поиграть немного и заработать немного предметов!"
-    elif error_code == 100:
-        text = "Выбран неверный пользователь для действия.\nНельзя выбирать ботов и самого себя!"
-    elif error_code == 105:
-        text = f"Неверная команда! Для получения списка команд достаточно нажать \"{PREFIX}\""
-    elif error_code == 403:
-        text = "У вас недостаточно прав для использования этой команды. (как иронично)"
-    elif error_code == 404:
-        text = f"У вас нет роли \"Игрок\" для использования этой команды."
+
+    print(error)
+
+    if isinstance(error, IncorrectTradeValues):
+        text = "- Неверно заданы параметры для трейда. \n NB! Формат предметов выглядит так:" \
+               " ID_предмета1:количество_предмета1,ID_предмета2:количество_предмета2"
+    if isinstance(error, IncompleteTrade):
+        text = "- Не стоит отправлять пустые обмены.\n NB! Если у вас нечего отправить другому человеку, " \
+               "то стоит поиграть немного и получить немного предметов!"
+    if isinstance(error, IncorrectUser):
+        text = "- Выбран неверный пользователь для действия.\n" \
+               "NB! Нельзя выбирать ботов, самого себя и пользователей без роли \"Игрок\"!"
+    if isinstance(error, MissingRole):
+        text = f"- У вас нет роли \"Игрок\" для использования этой команды."
+    if isinstance(error, MissingPermissions):
+        text = "- У вас недостаточно прав для использования этой команды. (Как иронично)"
+    if isinstance(error, commands.CommandNotFound):
+        text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
 
     emb = discord.Embed(title="__**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ**__", color=0xed4337)
     emb.add_field(name="**Причина:**",
-                  value=f"```diff\n- {text}\n```",
+                  value=f"```diff\n{text}\n```",
                   inline=False)
     await ctx.send(embed=emb)
 

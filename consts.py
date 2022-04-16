@@ -37,7 +37,12 @@ group_lbl_button_origin = ['Богатая семья', 'Обычная семь
 Objects = json.load(open("objects.json", encoding="utf8"))
 
 # Роли
-roles_game = ["Игрок", "Тополис", "Браифаст", "Джадифф"]
+roles_game = {
+    "Игрок": 44444,
+    "Тополис": 16777215,
+    "Браифаст": 16777215,
+    "Джадифф": 16777215
+}
 
 # Прочее
 ffmpeg_opts = {
