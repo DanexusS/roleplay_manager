@@ -148,7 +148,7 @@ async def on_button_click(interaction):
         await interaction.message.delete()
 
 
-# СОБЫТИЕ, ...
+# СОБЫТИЕ,
 @client.event
 async def on_command_error(ctx, error):
     await ctx.message.delete()
