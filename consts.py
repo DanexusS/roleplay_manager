@@ -49,6 +49,9 @@ ffmpeg_opts = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -stream_loop -1',
     'options': '-vn'
 }
+
+TIME_STORE_UPDATE = "18:00"
+
 TOKEN = "NTY3MzMyNTU5NDc5MTExNzQw.XLR_ng.zhaxoAo_6ZL-LfA5gBEZXPAfGj0"
 PREFIX = "/"
 BOT_ID = 567332559479111740

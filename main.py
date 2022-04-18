@@ -5,6 +5,7 @@ import asyncio
 import aiohttp
 import discord
 import datetime
+import random
 
 from discord.ext import commands
 from discord.ext.commands import MissingPermissions, MissingRole
@@ -19,6 +20,7 @@ from discord_exceptions import *
 from consts import *
 from data import db_session
 from data.users import User
+from data.items import Items
 
 
 """
@@ -365,6 +367,9 @@ async def implement(ctx):
         await ctx.send(":white_check_mark: *База данных заполнена.*")
         check_implement = True
 
+    # Создание магазина
+    await store_update(guild)
+
     # Подключение к каналу "🎶Главная тема"
     await channel_connection()
 
@@ -432,33 +437,54 @@ async def delete_users(ctx):
 
 
 # ФУНКЦИЯ, обновляющая магазин
-async def store_update():
-    for guild in client.guilds:
-        store_channel = get(guild.channels, name="🛒магазин")
-        if store_channel:
-            # Удаление сообщений
-            await store_channel.purge(limit=None)
+async def store_update(guild):
+    store_channel = get(guild.channels, name="🛒магазин")
+    if store_channel:
+        # Удаление сообщений
+        await store_channel.purge(limit=None)
+        # Список всех предметов
+        items_all = db_sess.query(Items).all()
+        types = [
+            {"NAME": "ОРУЖИЕ",
+             "firearms": "Огнестрельное оружие.",
+             "steel arms": "Холодное оружие.",
+             "energy weapon": "Энергетическое оружие."},
+            {"NAME": "ОДЕЖДА",
+             "armor": "Одежда, броня."},
+            {"NAME": "ЕДА",
+             "food": "Еда."}
+        ]
+        # Магазин
+        for _type in types:
+            items = list(filter(lambda x: x.type in _type.keys(), items_all.copy()))
+            random.shuffle(items)
+            # items = items[:random.randint(4, 6)]
             # Embed сообщения
-            text = '*```yaml\n' \
-                   '123.```*'
-            emb = discord.Embed(title='⮮ __**МАГАЗИН:**__', color=44444)
-            emb.add_field(name='**123:**', value=text, inline=False)
+            emb = discord.Embed(title=f"⮮ __**{_type['NAME']}:**__", color=0xf1c40f)
+            for item in items:
+                emoji_money = client.get_emoji(emoji["money"])
+                #
+                # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+                emb.add_field(
+                    name=f"**{item.name}:**",
+                    value=f"➢ **Цена:** {item.price} {emoji_money}" \
+                          f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
+                )
+            # Кнопки для покупки
+            btns = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
             # Отправка сообщения
             await store_channel.send(
                 embed=emb,
-                components=[
-                    [Button(style=ButtonStyle.gray, label="1"),
-                     Button(style=ButtonStyle.gray, label="2"),
-                     Button(style=ButtonStyle.gray, label="3")]
-                ]
+                components=[btns]
             )
 
 
 # ФУНКЦИЯ, проверяющая нужно ли обновить магазин
 async def store_update_cycle():
     while True:
-        if datetime.datetime.now().strftime("%H:%M") == "18:00":
-            await store_update()
+        if datetime.datetime.now().strftime("%H:%M") == TIME_STORE_UPDATE:
+            for guild in client.guilds:
+                await store_update(guild)
         await asyncio.sleep(60)
 
 
@@ -469,12 +495,13 @@ async def store_update_cycle():
 """
 
 
-# КОМАНДА, добавляющая предмет
+# ФУНКЦИЯ, добавляющая предмет в инвентарь
 async def add_item(guild, player_id, item):
     db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first().inventory += f";{item}"
     db_sess.commit()
 
 
+# ФУНКЦИЯ, ...
 async def remove_item(guild, player_id, item):
     user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
     inventory_list = user.inventory.split(";")
@@ -483,6 +510,7 @@ async def remove_item(guild, player_id, item):
     db_sess.commit()
 
 
+# ФУНКЦИЯ, ...
 async def get_inventory(player_id, guild):
     user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
     player_inventory = {}
@@ -491,6 +519,7 @@ async def get_inventory(player_id, guild):
     return player_inventory
 
 
+# ФУНКЦИЯ, ...
 async def get_formatted_items(player_id, guild, items):
     player_inventory = await get_inventory(player_id, guild)
     player_items_list = list(player_inventory.keys())
@@ -502,6 +531,7 @@ async def get_formatted_items(player_id, guild, items):
     return formatted_items
 
 
+# ФУНКЦИЯ, ...
 async def swap_items(guild, items, sender_id, other_id):
     for line in items.split("\n"):
         item = line.split()[0]
@@ -584,11 +614,48 @@ async def open_inventory(ctx, member=None):
     await ctx.send(embed=emb)
 
 
+# # КОМАНДА, !!! добавляющая предмет в базу данных, нужная только для проектирования бота !!!
+# @slash.slash(
+#     name="add_item_db",
+#     description="Добавить предмет в базу данных.",
+#     options=[{"name": "_name", "description": "Имя предмета.", "type": 3, "required": True},
+#              {"name": "_description", "description": "Описание предмета.", "type": 3, "required": True},
+#              {"name": "_type", "description": "Тип предмета.", "type": 3, "required": True},
+#              {"name": "_const", "description": "Характеристика предмета.", "type": 3, "required": True},
+#              {"name": "_price", "description": "Стоимость предмета.", "type": 3, "required": True}],
+#     guild_ids=test_servers_id
+# )
+# async def add_item_db(ctx, _name, _description, _type, _const, _price):
+#     print(_name, _description, _type, _const, _price)
+#     # Создание нового предмета
+#     new_item = Items()
+#     new_item.name = str(_name)
+#     new_item.description = str(_description)
+#     new_item.type = str(_type)
+#     new_item.const = int(_const)
+#     new_item.price = int(_price)
+#     db_sess.add(new_item)
+#     db_sess.commit()
+#     # Уведомление
+#     await ctx.send(":white_check_mark: **Предмет добавлен!**")
+# # Отключать команду когда она не нужна!
+
+
 """
 ====================================================================================================================
 ===================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ =======================================
 ====================================================================================================================
 """
+
+
+# КОМАНДА, для проверки связи :)
+@slash.slash(
+    name="ping",
+    description="Проверка связи!",
+    guild_ids=test_servers_id
+)
+async def ping(ctx):
+    await ctx.send('Pong!')
 
 
 # КОМАНДА, добавляющая ник и создающая профиль
