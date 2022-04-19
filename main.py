@@ -56,11 +56,10 @@ db_sess = db_session.create_session()
 async def on_ready():
     # Уведомление
     print("Бот запустился")
-    # thrd = ScheduledFunction()
-    # thrd.start()
-    await store_update_cycle()
     # Подключение к каналу "🎶Главная тема" на всех серверах
     await channel_connection()
+    # Запуск цикла обновления магазина
+    await store_update_cycle()
 
 
 # СОБЫТИЕ, обрабатывающее нажатие кнопок
@@ -89,6 +88,7 @@ async def on_button_click(interaction):
         await guild.get_member(sender_id).send("Done!")
         await msg.delete()
         return
+
     if decision_type == "Отклонить обмен":
         msg = interaction.message
         embed = msg.embeds[0]
@@ -106,6 +106,20 @@ async def on_button_click(interaction):
     guild = interaction.guild
     member = interaction.user
     id_user = f"{member.id}-{guild.id}"
+
+    if "Купить" in decision_type:
+        item_name = decision_type.split()[1]
+        item = db_sess.query(Items).filter(Items.name == item_name).first()
+        user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
+        user.money -= item.price
+        if user.money < 0:
+            user.money += item.price
+            await interaction.send(f"***Вам не хватило денег**! Ваш баланс: {user.money} {client.get_emoji(emoji['money'])}* [Это сообщение можно удалить]")
+        else:
+            await add_item(guild, member.id, item_name)
+            await interaction.send(f"*Вы приобрели **{item_name}**! Ваш баланс: {user.money} {client.get_emoji(emoji['money'])}* [Это сообщение можно удалить]")
+        db_sess.commit()
+        return
 
     if decision_type in group_lbl_button_nation:
         user = db_sess.query(User).filter(User.id == id_user).first()
@@ -145,9 +159,12 @@ async def on_button_click(interaction):
                  Button(style=ButtonStyle.red, label="Отклонить обмен")]
             ]
         )
+        return
+
     if decision_type == "Отменить обмен":
         await interaction.send("Обмен отменён [Это сообщение можно удалить]")
         await interaction.message.delete()
+        return
 
 
 # СОБЫТИЕ,
@@ -458,16 +475,13 @@ async def store_update(guild):
         for _type in types:
             items = list(filter(lambda x: x.type in _type.keys(), items_all.copy()))
             random.shuffle(items)
-            # items = items[:random.randint(4, 6)]
+            items = items[:random.randint(4, 6)]
             # Embed сообщения
             emb = discord.Embed(title=f"⮮ __**{_type['NAME']}:**__", color=0xf1c40f)
             for item in items:
-                emoji_money = client.get_emoji(emoji["money"])
-                #
-                # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
                 emb.add_field(
                     name=f"**{item.name}:**",
-                    value=f"➢ **Цена:** {item.price} {emoji_money}" \
+                    value=f"➢ **Цена:** {item.price} {client.get_emoji(emoji['money'])}" \
                           f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
                 )
             # Кнопки для покупки
