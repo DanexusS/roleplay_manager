@@ -289,7 +289,7 @@ async def write_db(guild):
             user.intelligence = -1
             user.dexterity = -1
             user.speed = -1
-            user.inventory = 'item;item;item1;item;item1;item1'
+            user.inventory = 'Glock 21;Glock 21;Glock 21;Glock 21'
             db_sess.add(user)
             chek_write_db = True
     db_sess.commit()
@@ -583,7 +583,6 @@ async def trade(ctx, member, your_items=None, their_items=None):
     encoded_data = base64.b64encode(f"{player.id};{member.id};{guild.id}".encode("UTF-8"))
     extra_info = str(encoded_data)[2:-1]
 
-    embed.set_author(name=f"Информация: {player.name}\t→\t{member.name}")
     embed.add_field(name=f"Предметы\t{player.name}:", value="\n".join(formatted_player_offer_items))
     embed.add_field(name=f"Предметы\t{member.name}:", value="\n".join(formatted_member_offer_items))
     embed.set_footer(text=f"┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈\n{extra_info}")
@@ -599,6 +598,18 @@ async def trade(ctx, member, your_items=None, their_items=None):
     )
 
 
+# КОМАНДА, перевод денег
+@slash.slash(
+    name="money_transfer",
+    description="Отправить деньгиф другому игроку.",
+    options=[{"name": "member", "description": "пользователь", "type": 6, "required": True},
+             {"name": "amount", "description": "Количество денег для отправки", "type": 4, "required": True}],
+    guild_ids=test_servers_id
+)
+async def money_transfer(ctx, member, amount):
+    pass
+
+
 # КОМАНДА, открывающая инвентарь
 @slash.slash(
     name="open_inventory",
@@ -609,11 +620,11 @@ async def trade(ctx, member, your_items=None, their_items=None):
 @commands.has_role("Игрок")
 async def open_inventory(ctx, member=None):
     guild = ctx.guild
-    if member.bot or get(guild.roles, name="Игрок") not in member.roles:
+    if member and (member.bot or get(guild.roles, name="Игрок") not in member.roles):
         raise IncorrectUser
 
     value_emoji = client.get_emoji(emoji["money"])
-    player = member if not member else ctx.author
+    player = member if member else ctx.author
     player_inventory = await get_inventory(player.id, guild)
     emb = discord.Embed(title=f"**˹ Инвентарь {player.name}˼**", color=0xFFFFF0)
 
