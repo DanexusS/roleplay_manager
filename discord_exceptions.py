@@ -8,3 +8,7 @@ class IncompleteTrade(Exception):
 
 class IncorrectTradeValues(Exception):
     pass
+
+
+class IncorrectMemberAmount(Exception):
+    pass

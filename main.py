@@ -1,8 +1,5 @@
-import os
-import json
 import base64
 import asyncio
-import aiohttp
 import discord
 import datetime
 import random
@@ -108,16 +105,20 @@ async def on_button_click(interaction):
     id_user = f"{member.id}-{guild.id}"
 
     if "Купить" in decision_type:
+        value_emoji = client.get_emoji(emoji['money'])
         item_name = decision_type.split()[1]
         item = db_sess.query(Items).filter(Items.name == item_name).first()
         user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
-        user.money -= item.price
-        if user.money < 0:
-            user.money += item.price
-            await interaction.send(f"***Вам не хватило денег**! Ваш баланс: {user.money} {client.get_emoji(emoji['money'])}* [Это сообщение можно удалить]")
+
+        if user.money - item.price < 0:
+            await interaction.send(f"***Вам не хватило денег**! Ваш баланс: {user.money} {value_emoji}* "
+                                   f"[Это сообщение можно удалить]")
         else:
+            user.money -= item.price
             await add_item(guild, member.id, item_name)
-            await interaction.send(f"*Вы приобрели **{item_name}**! Ваш баланс: {user.money} {client.get_emoji(emoji['money'])}* [Это сообщение можно удалить]")
+            await interaction.send(f"*Вы приобрели **{item_name}**! Ваш баланс: {user.money} {value_emoji}* "
+                                   f"[Это сообщение можно удалить]")
+
         db_sess.commit()
         return
 
@@ -485,11 +486,11 @@ async def store_update(guild):
                           f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
                 )
             # Кнопки для покупки
-            btns = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
+            buttons = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
             # Отправка сообщения
             await store_channel.send(
                 embed=emb,
-                components=[btns]
+                components=[buttons]
             )
 
 
@@ -515,7 +516,7 @@ async def add_item(guild, player_id, item):
     db_sess.commit()
 
 
-# ФУНКЦИЯ, ...
+# ФУНКЦИЯ, которая убирает предмет из инвентаря
 async def remove_item(guild, player_id, item):
     user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
     inventory_list = user.inventory.split(";")
@@ -524,7 +525,7 @@ async def remove_item(guild, player_id, item):
     db_sess.commit()
 
 
-# ФУНКЦИЯ, ...
+# ФУНКЦИЯ, которая получает инвентарь игрока формата - {предмет:количество}
 async def get_inventory(player_id, guild):
     user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
     player_inventory = {}
@@ -533,7 +534,7 @@ async def get_inventory(player_id, guild):
     return player_inventory
 
 
-# ФУНКЦИЯ, ...
+# ФУНКЦИЯ, которая форматирует предметы для трейда в должный вид
 async def get_formatted_items(player_id, guild, items):
     player_inventory = await get_inventory(player_id, guild)
     player_items_list = list(player_inventory.keys())
@@ -545,7 +546,7 @@ async def get_formatted_items(player_id, guild, items):
     return formatted_items
 
 
-# ФУНКЦИЯ, ...
+# ФУНКЦИЯ, которая передаёт предметы из одного инвентаря в другой
 async def swap_items(guild, items, sender_id, other_id):
     for line in items.split("\n"):
         item = line.split()[0]
@@ -601,13 +602,26 @@ async def trade(ctx, member, your_items=None, their_items=None):
 # КОМАНДА, перевод денег
 @slash.slash(
     name="money_transfer",
-    description="Отправить деньгиф другому игроку.",
+    description="Отправить деньги другому игроку.",
     options=[{"name": "member", "description": "пользователь", "type": 6, "required": True},
              {"name": "amount", "description": "Количество денег для отправки", "type": 4, "required": True}],
     guild_ids=test_servers_id
 )
+@commands.has_role("Игрок")
 async def money_transfer(ctx, member, amount):
-    pass
+    guild = ctx.guild
+    if member and (member.bot or get(guild.roles, name="Игрок") not in member.roles):
+        raise IncorrectUser
+
+    player = ctx.author
+    player_user = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
+    member_user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
+
+    player_user.money -= amount
+    member_user.money += amount
+
+    await ctx.send("Обмен состоялся!")
+    db_sess.commit()
 
 
 # КОМАНДА, открывающая инвентарь
@@ -630,11 +644,19 @@ async def open_inventory(ctx, member=None):
 
     item_id = 1
     for item, amount in player_inventory.items():
-        price = -1
-        emb.add_field(name=f"**{item_id}. {item.upper()}**",
-                      value=f"Кол-во: {amount}\nЦена: {price} {value_emoji}",
+        item_obj = db_sess.query(Items).filter(Items.name == item).first()
+        text = f"**Порядковый ID: {item_id}**\n" \
+               f"Кол-во: {amount}\n" \
+               f"Цена: {item_obj.price} {value_emoji}\n" \
+               f"Описание: {item_obj.description}"
+
+        emb.add_field(name=f"**__{item.upper()}__**",
+                      value=text,
                       inline=True)
         item_id += 1
+
+    balance = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().money
+    emb.set_footer(text=f"Баланс: {balance} Gaudium")
 
     await ctx.send(embed=emb)
 
@@ -668,9 +690,79 @@ async def add_item_db(ctx, _name, _description, _type, _const, _price):
 
 """
 ====================================================================================================================
+=============================================== РАЗДЕЛ С МИНИ-ИГРАМИ ===============================================
+====================================================================================================================
+"""
+
+
+"""
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ПОКЕР -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+"""
+
+
+@slash.slash(
+    name="poker_help",
+    description="Информация о правилах игры покер и о взаимодействии с ботом.",
+    guild_ids=test_servers_id
+)
+async def poker_help(ctx):
+    pass
+
+
+@slash.slash(
+    name="start_poker_session",
+    description="Начать игру в покер",
+    options=[{"name": "members", "description": "Игроки, участвующие в игре. Совет! Просто упомените всех "
+                                                "игроков в покер (от 2 до 10 человек)", "type": 3, "required": True},
+             {"name": "bet", "description": "Информация о стоимости входа в игру.", "type": 4, "required": True}],
+    guild_ids=test_servers_id
+)
+async def start_poker_session(ctx, members):
+    guild = ctx.guild
+    raw_member_data = members.split("><") + [ctx.author.id]
+    if not 2 <= len(raw_member_data) <= 10:
+        raise IncorrectMemberAmount
+
+    members = [guild.get_member(await clean_member_id(member_id)) for member_id in raw_member_data]
+    for member in members:
+        if member.bot or get(guild.roles, name="Игрок") not in member.roles:
+            raise IncorrectUser
+
+
+@client.command()
+async def call(ctx):
+    pass
+
+
+@client.command()
+async def fold(ctx):
+    pass
+
+
+@client.command()
+async def reraise(ctx):
+    pass
+
+
+@client.command()
+async def check(ctx):
+    pass
+
+
+@client.command(name="raise")
+async def _raise(ctx):
+    pass
+
+
+"""
+====================================================================================================================
 ===================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ =======================================
 ====================================================================================================================
 """
+
+
+async def clean_member_id(member_id):
+    return int(str(member_id).replace("<", "").replace(">", "").replace("!", "").replace("@", ""))
 
 
 # КОМАНДА, для проверки связи :)
@@ -804,9 +896,7 @@ async def inventory_error(ctx, error):
 
 
 async def throw_error(ctx, error):
-    text = ""
-
-    print(error)
+    text = error
 
     if isinstance(error, IncorrectTradeValues):
         text = "- Неверно заданы параметры для трейда. \n NB! Формат предметов выглядит так:" \
