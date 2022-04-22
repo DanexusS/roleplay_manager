@@ -168,6 +168,26 @@ async def on_button_click(interaction):
         return
 
 
+@client.event
+async def on_reaction_add(reaction, user):
+    # if user.bot:
+    #     return
+
+    _message = reaction.message
+    _emoji = reaction.emoji
+
+    if _emoji == "✅" and "Чтобы принять участие в партии покера" in _message.content:
+        text = _message.content
+        if "Отсутствуют :(" in text:
+            text = "\n".join(text.split("\n")[:-1])
+            text += f"\n᲼᲼᲼{numbers_emoji[1]}  {user.name}"
+        else:
+            number = len(text.split("\n")) - 3
+            text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.name}"
+
+        await _message.edit(content=text)
+
+
 # СОБЫТИЕ,
 @client.event
 async def on_command_error(ctx, error):
@@ -482,7 +502,7 @@ async def store_update(guild):
             for item in items:
                 emb.add_field(
                     name=f"**{item.name}:**",
-                    value=f"➢ **Цена:** {item.price} {client.get_emoji(emoji['money'])}" \
+                    value=f"➢ **Цена:** {item.price} {client.get_emoji(emoji['money'])}"
                           f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
                 )
             # Кнопки для покупки
@@ -696,6 +716,34 @@ async def add_item_db(ctx, _name, _description, _type, _const, _price):
 
 
 """
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- КРЕСТИКИ-НОЛИКИ -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+"""
+
+
+@slash.slash(
+    name="tic_tac_toe",
+    description="Сыграть в \"Крестики-нолики\"",
+    guild_ids=test_servers_id
+)
+async def tic_tac_toe(ctx):
+    pass
+
+
+"""
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- КАМЕНЬ - НОЖНИЦЫ - БУМАГА -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+"""
+
+
+@slash.slash(
+    name="rock_paper_scissors",
+    description="Сыграть в \"Камень-ножницы-бумага\"",
+    guild_ids=test_servers_id
+)
+async def tic_tac_toe(ctx):
+    pass
+
+
+"""
 -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- ПОКЕР -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 """
 
@@ -714,10 +762,10 @@ async def poker_help(ctx):
     description="Начать игру в покер",
     options=[{"name": "members", "description": "Игроки, участвующие в игре. Совет! Просто упомените всех "
                                                 "игроков в покер (от 2 до 10 человек)", "type": 3, "required": True},
-             {"name": "bet", "description": "Информация о стоимости входа в игру.", "type": 4, "required": True}],
+             {"name": "bet", "description": "Минимально возможная ставка за один ход", "type": 4, "required": True}],
     guild_ids=test_servers_id
 )
-async def start_poker_session(ctx, members):
+async def start_poker_session(ctx, members, bet):
     guild = ctx.guild
     raw_member_data = members.split("><") + [ctx.author.id]
     if not 2 <= len(raw_member_data) <= 10:
@@ -727,6 +775,30 @@ async def start_poker_session(ctx, members):
     for member in members:
         if member.bot or get(guild.roles, name="Игрок") not in member.roles:
             raise IncorrectUser
+
+    channel_name = f"poker-lobby-{''.join(filter(str.isalnum, ctx.author.name))}".lower()
+    channel = get(guild.channels, name=channel_name)
+    if channel:
+        await channel.delete()
+
+    channel = await guild.create_text_channel(channel_name, category=ctx.channel.category)
+    await channel.set_permissions(guild.default_role, send_messages=False, read_messages=False)
+
+    for member in members:
+        await channel.set_permissions(member, send_messages=True, read_messages=True)
+
+    await ctx.send(f"Лобби {channel.mention} создано")
+    msg = await channel.send(f"Ждём начала игры!\n"
+                             f"Чтобы принять участие в партии покера, нажмите кнопку \"✅\"\n"
+                             f"NB! Для приятной игры, нужно иметь, минимум {bet * 2}"
+                             f"Текущие участники:\n"
+                             f"᲼᲼᲼Отсутствуют :(")
+    await msg.add_reaction("✅")
+
+
+@client.command()
+async def play(ctx):
+    pass
 
 
 @client.command()
@@ -751,6 +823,11 @@ async def check(ctx):
 
 @client.command(name="raise")
 async def _raise(ctx):
+    pass
+
+
+@client.command()
+async def leave(ctx):
     pass
 
 
@@ -861,6 +938,11 @@ async def move(ctx, city):
 ========================================== РАЗДЕЛ С ОБРАБОТЧИКАМИ ОШИБОК ===========================================
 ====================================================================================================================
 """
+
+
+@start_poker_session.error
+async def start_poker_session_error(ctx, error):
+    await throw_error(ctx, error)
 
 
 # Обработчик ошибок функции move
