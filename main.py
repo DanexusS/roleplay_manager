@@ -170,14 +170,19 @@ async def on_button_click(interaction):
 
 @client.event
 async def on_reaction_add(reaction, user):
-    # if user.bot:
-    #     return
+    if user.bot:
+        return
 
     _message = reaction.message
     _emoji = reaction.emoji
 
     if _emoji == "✅" and "Чтобы принять участие в партии покера" in _message.content:
         text = _message.content
+        members = [member.split("  ")[-1] for member in text.split("\n")[4:]]
+
+        if user.name in members:
+            return
+
         if "Отсутствуют :(" in text:
             text = "\n".join(text.split("\n")[:-1])
             text += f"\n᲼᲼᲼{numbers_emoji[1]}  {user.name}"
@@ -787,11 +792,15 @@ async def start_poker_session(ctx, members, bet):
     for member in members:
         await channel.set_permissions(member, send_messages=True, read_messages=True)
 
-    await ctx.send(f"Лобби {channel.mention} создано")
-    msg = await channel.send(f"Ждём начала игры!\n"
-                             f"Чтобы принять участие в партии покера, нажмите кнопку \"✅\"\n"
-                             f"NB! Для приятной игры, нужно иметь, минимум {bet * 2}"
-                             f"Текущие участники:\n"
+    members_mentions = [member.mention for member in members]
+    members_list = "\n".join(members_mentions)
+    await ctx.send(f"Лобби {channel.mention} создано.\n"
+                   f"{members_list}")
+    msg = await channel.send(f"**ЖДЁМ НАЧАЛА ИГРЫ!**\n"
+                             f"Чтобы принять участие в партии покера, нажмите кнопку ✅\n"
+                             f"*NB! Для приятной игры, нужно иметь, "
+                             f"минимум {round(bet * 1.5)} {client.get_emoji(emoji['money'])}*\n"
+                             f"**__Текущие участники:__**\n"
                              f"᲼᲼᲼Отсутствуют :(")
     await msg.add_reaction("✅")
 
