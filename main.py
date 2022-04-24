@@ -686,33 +686,6 @@ async def open_inventory(ctx, member=None):
     await ctx.send(embed=emb)
 
 
-# КОМАНДА, !!! добавляющая предмет в базу данных, нужная только для проектирования бота !!!
-@slash.slash(
-    name="add_item_db",
-    description="Добавить предмет в базу данных.",
-    options=[{"name": "_name", "description": "Имя предмета.", "type": 3, "required": True},
-             {"name": "_description", "description": "Описание предмета.", "type": 3, "required": True},
-             {"name": "_type", "description": "Тип предмета.", "type": 3, "required": True},
-             {"name": "_const", "description": "Характеристика предмета.", "type": 3, "required": True},
-             {"name": "_price", "description": "Стоимость предмета.", "type": 3, "required": True}],
-    guild_ids=test_servers_id
-)
-async def add_item_db(ctx, _name, _description, _type, _const, _price):
-    print(_name, _description, _type, _const, _price)
-    # Создание нового предмета
-    new_item = Items()
-    new_item.name = str(_name)
-    new_item.description = str(_description)
-    new_item.type = str(_type)
-    new_item.const = int(_const)
-    new_item.price = int(_price)
-    db_sess.add(new_item)
-    db_sess.commit()
-    # Уведомление
-    await ctx.send(":white_check_mark: **Предмет добавлен!**")
-# Отключать команду когда она не нужна!
-
-
 """
 ====================================================================================================================
 =============================================== РАЗДЕЛ С МИНИ-ИГРАМИ ===============================================

@@ -8,8 +8,12 @@ class Items(SqlAlchemyBase):
 
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True, autoincrement=True)
 
-    name = sqlalchemy.Column(sqlalchemy.String, nullable=True)
+    name = sqlalchemy.Column(sqlalchemy.String)
     description = sqlalchemy.Column(sqlalchemy.String, nullable=True)
-    type = sqlalchemy.Column(sqlalchemy.String, nullable=True)
-    const = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
-    price = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    type = sqlalchemy.Column(sqlalchemy.String)
+    damage = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    aim = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    ammunition = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    hp_regen = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    protection = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    price = sqlalchemy.Column(sqlalchemy.Integer)
