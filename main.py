@@ -178,17 +178,17 @@ async def on_reaction_add(reaction, user):
 
     if _emoji == "✅" and "Чтобы принять участие в партии покера" in _message.content:
         text = _message.content
-        members = [member.split("  ")[-1] for member in text.split("\n")[4:]]
+        members = [await clean_member_id(member.split("  ")[-1]) for member in text.split("\n")[4:]]
 
-        if user.name in members:
+        if user.id in members:
             return
 
         if "Отсутствуют :(" in text:
             text = "\n".join(text.split("\n")[:-1])
-            text += f"\n᲼᲼᲼{numbers_emoji[1]}  {user.name}"
+            text += f"\n᲼᲼᲼{numbers_emoji[1]}  {user.mention}"
         else:
             number = len(text.split("\n")) - 3
-            text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.name}"
+            text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.mention}"
 
         await _message.edit(content=text)
 
@@ -787,8 +787,8 @@ async def start_poker_session(ctx, members, bet):
         await channel.delete()
 
     channel = await guild.create_text_channel(channel_name, category=ctx.channel.category)
-    await channel.set_permissions(guild.default_role, send_messages=False, read_messages=False)
 
+    await channel.set_permissions(guild.default_role, send_messages=False, read_messages=False)
     for member in members:
         await channel.set_permissions(member, send_messages=True, read_messages=True)
 
@@ -803,11 +803,16 @@ async def start_poker_session(ctx, members, bet):
                              f"**__Текущие участники:__**\n"
                              f"᲼᲼᲼Отсутствуют :(")
     await msg.add_reaction("✅")
+    await msg.pin()
 
 
 @client.command()
 async def play(ctx):
-    pass
+    pins = await ctx.channel.pins()
+    message = pins[0].content
+    members = [await clean_member_id(member.split("  ")[-1]) for member in message.split("\n")[4:]]
+
+    print(members)
 
 
 @client.command()
@@ -837,7 +842,10 @@ async def _raise(ctx):
 
 @client.command()
 async def leave(ctx):
-    pass
+    member = ctx.author
+    channel = ctx.channel
+
+    await channel.set_permissions(member, send_messages=False, read_messages=False)
 
 
 """
@@ -848,7 +856,10 @@ async def leave(ctx):
 
 
 async def clean_member_id(member_id):
-    return int(str(member_id).replace("<", "").replace(">", "").replace("!", "").replace("@", ""))
+    try:
+        return int(str(member_id).replace("<", "").replace(">", "").replace("!", "").replace("@", ""))
+    except ValueError:
+        return ""
 
 
 # КОМАНДА, для проверки связи :)
