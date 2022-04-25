@@ -700,11 +700,31 @@ async def open_inventory(ctx, member=None):
 
 @slash.slash(
     name="tic_tac_toe",
-    description="Сыграть в \"Крестики-нолики\"",
+    description="Сыграть в \"Крестики-нолики\".",
     guild_ids=test_servers_id
 )
+@commands.has_role("Игрок")
 async def tic_tac_toe(ctx):
-    pass
+    # ❌ or ⭕ | emb.set_footer(text=f"")
+    # Рандомный выбор того кто будет за "крестики"
+    player_is_x = True if random.randint(0, 1) else False
+    cross = ctx.author if player_is_x else 'Бот'
+    zero = 'Бот' if player_is_x else ctx.author
+    # Сообщение-поле игры
+    emb = discord.Embed(title=f"**<<= КРЕСТИКИ-НОЛИКИ =>>**", color=44444)
+    text = f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
+           f"**. ━━━━━━━━━━━━━━ .**\n" \
+           f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
+           f"**. ━━━━━━━━━━━━━━ .**\n" \
+           f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
+           f"**. ━━━━━━━━━━━━━━ .**"
+    emb.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=True)
+    emb.set_footer(text=f"Крестики: {cross}; Нолики: {zero}")
+
+    await ctx.send(embed=emb)
+
+    if not player_is_x:
+        pass
 
 
 """
@@ -714,10 +734,11 @@ async def tic_tac_toe(ctx):
 
 @slash.slash(
     name="rock_paper_scissors",
-    description="Сыграть в \"Камень-ножницы-бумага\"",
+    description="Сыграть в \"Камень-ножницы-бумага\".",
     guild_ids=test_servers_id
 )
-async def tic_tac_toe(ctx):
+@commands.has_role("Игрок")
+async def ppp(ctx):
     pass
 
 
@@ -731,18 +752,20 @@ async def tic_tac_toe(ctx):
     description="Информация о правилах игры покер и о взаимодействии с ботом.",
     guild_ids=test_servers_id
 )
+@commands.has_role("Игрок")
 async def poker_help(ctx):
     pass
 
 
 @slash.slash(
     name="start_poker_session",
-    description="Начать игру в покер",
+    description="Начать игру в покер.",
     options=[{"name": "members", "description": "Игроки, участвующие в игре. Совет! Просто упомените всех "
                                                 "игроков в покер (от 2 до 10 человек)", "type": 3, "required": True},
              {"name": "bet", "description": "Минимально возможная ставка за один ход", "type": 4, "required": True}],
     guild_ids=test_servers_id
 )
+@commands.has_role("Игрок")
 async def start_poker_session(ctx, members, bet):
     guild = ctx.guild
     raw_member_data = members.split("><") + [ctx.author.id]
@@ -780,6 +803,7 @@ async def start_poker_session(ctx, members, bet):
 
 
 @client.command()
+@commands.has_role("Игрок")
 async def play(ctx):
     pins = await ctx.channel.pins()
     message = pins[0].content
@@ -789,26 +813,31 @@ async def play(ctx):
 
 
 @client.command()
+@commands.has_role("Игрок")
 async def call(ctx):
     pass
 
 
 @client.command()
+@commands.has_role("Игрок")
 async def fold(ctx):
     pass
 
 
 @client.command()
+@commands.has_role("Игрок")
 async def reraise(ctx):
     pass
 
 
 @client.command()
+@commands.has_role("Игрок")
 async def check(ctx):
     pass
 
 
 @client.command(name="raise")
+@commands.has_role("Игрок")
 async def _raise(ctx):
     pass
 
