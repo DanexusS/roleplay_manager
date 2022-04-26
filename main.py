@@ -738,7 +738,7 @@ async def tic_tac_toe(ctx):
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
-async def ppp(ctx):
+async def rock_paper_scissors(ctx):
     pass
 
 
@@ -807,8 +807,13 @@ async def start_poker_session(ctx, members, bet):
 async def play(ctx):
     pins = await ctx.channel.pins()
     message = pins[0].content
-    members = [await clean_member_id(member.split("  ")[-1]) for member in message.split("\n")[4:]]
+    members = [await clean_member_id(member.split("  ")[-1]) for member in message.split("\n")[4:]] * 5
 
+    embed = discord.Embed(title=f"Партия в покер в процессе", color=44444)
+    for member in members:
+        embed.add_field(name=ctx.guild.get_member(member).name, value="money", inline=True)
+
+    await ctx.send(embed=embed)
     print(members)
 
 
