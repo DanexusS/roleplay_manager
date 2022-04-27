@@ -19,13 +19,11 @@ from data import db_session
 from data.users import User
 from data.items import Items
 
-
 """
 ====================================================================================================================
 ====================================== РАЗДЕЛ С ПЕРЕМЕННЫМИ И НАСТРОЙКОЙ БОТА ======================================
 ====================================================================================================================
 """
-
 
 # Сервера
 test_servers_id = [936293335063232672]
@@ -39,7 +37,6 @@ slash = SlashCommand(client, sync_commands=True)
 # Подключение к бд
 db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
-
 
 """
 ====================================================================================================================
@@ -175,6 +172,7 @@ async def on_reaction_add(reaction, user):
 
     _message = reaction.message
     _emoji = reaction.emoji
+    _channel = _message.channel
 
     if _emoji == "✅" and "Чтобы принять участие в партии покера" in _message.content:
         text = _message.content
@@ -191,6 +189,41 @@ async def on_reaction_add(reaction, user):
             text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.mention}"
 
         await _message.edit(content=text)
+    if _emoji == "✅" and "КРЕСТИКИ-НОЛИКИ" in _message.content:
+        txt = _message.content.split()
+        if txt[2][:-1] == user.name:
+            await _message.delete()
+            await first_send_tic_tac_toe(_channel, txt[2][:-1], txt[5])
+    if _emoji in [numbers_emoji[i] for i in range(1, 10)]:
+        emb = _message.embeds[0]
+        if emb.fields[0].value.split()[1][:-1] == user.name:
+            # num = 0
+            # for i in range(1, 10):
+            #     if numbers_emoji[i] == _emoji:
+            #         num = i
+            #         break
+            #
+            # p1 = emb.fields[0].value.split()[1][:-1]
+            # p2, p3 = emb.footer.text.split()[1][:-1], emb.footer.text.split()[3]
+            # player = p2 if p1 == p2 else p3
+            #
+            # cross_and_zero = []
+            # count = 1
+            # for elem in emb.fields[1].value:
+            #     if elem in ['❌', '⭕']:
+            #         if count == num:
+            #             if player == p2:
+            #                 elem = '❌'
+            #         cross_and_zero.append(elem)
+            #         count += 1
+            # print(cross_and_zero)
+            #
+            # emb.fields[0].value = f"*Ходит: {p2 if player != p2 else p3}*"
+            #
+            # await msg.edit(embed=emb)
+
+            for _user in await reaction.users().flatten():
+                await reaction.remove(_user)
 
 
 # СОБЫТИЕ,
@@ -692,7 +725,6 @@ async def open_inventory(ctx, member=None):
 ====================================================================================================================
 """
 
-
 """
 -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- КРЕСТИКИ-НОЛИКИ -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 """
@@ -701,30 +733,40 @@ async def open_inventory(ctx, member=None):
 @slash.slash(
     name="tic_tac_toe",
     description="Сыграть в \"Крестики-нолики\".",
+    options=[{"name": "member", "description": "Игрок, которого вы вызываете на бой.", "type": 6, "required": True}],
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
-async def tic_tac_toe(ctx):
-    # ❌ or ⭕ | emb.set_footer(text=f"")
+async def send_invite_tic_tac_toe(ctx, member):
+    if member.bot:
+        await ctx.send(":x: **Бота нельзя пригласить в игру.**")
+        return
+    msg = await ctx.send(f"**КРЕСТИКИ-НОЛИКИ**\n*| {member.name}! Вас приглашает {ctx.author.name} "
+                         f"сыграть в крестики-нолики!* __*Для подтверждения нажмите на ✅.*__\n"
+                         f"||{member.mention}{ctx.author.mention}||")
+    await msg.add_reaction("✅")
+
+
+async def first_send_tic_tac_toe(channel, members1, members2):
     # Рандомный выбор того кто будет за "крестики"
-    player_is_x = True if random.randint(0, 1) else False
-    cross = ctx.author if player_is_x else 'Бот'
-    zero = 'Бот' if player_is_x else ctx.author
-    # Сообщение-поле игры
+    cross_and_zero = [members1, members2]
+    random.shuffle(cross_and_zero)
+    # Сообщение-поле игры   |   (❌ or ⭕ | emb.set_footer(text=f""))
     emb = discord.Embed(title=f"**<<= КРЕСТИКИ-НОЛИКИ =>>**", color=44444)
+    emb.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=f"*Ходит: {cross_and_zero[0]}*", inline=False)
     text = f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
            f"**. ━━━━━━━━━━━━━━ .**\n" \
            f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
            f"**. ━━━━━━━━━━━━━━ .**\n" \
            f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
            f"**. ━━━━━━━━━━━━━━ .**"
-    emb.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=True)
-    emb.set_footer(text=f"Крестики: {cross}; Нолики: {zero}")
+    emb.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=False)
+    emb.set_footer(text=f"Крестики: {cross_and_zero[0]}; Нолики: {cross_and_zero[1]}")
 
-    await ctx.send(embed=emb)
+    msg = await channel.send(embed=emb)
 
-    if not player_is_x:
-        pass
+    for i in range(1, 10):
+        await msg.add_reaction(numbers_emoji[i])
 
 
 """
