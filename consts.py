@@ -36,6 +36,11 @@ group_lbl_button_origin = ['Богатая семья', 'Обычная семь
 # types = non-game, game, all, city_topolis, city_braifast, city_jadiff, music
 Objects = json.load(open("objects.json", encoding="utf8"))
 
+cards = []
+for key, value in json.load(open("cards.json", encoding="utf8")).items():
+    for card in value:
+        cards.append(f"{card} - {key}")
+
 # Роли
 roles_game = {
     "Игрок": 44444,
