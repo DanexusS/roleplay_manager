@@ -4,12 +4,12 @@ import discord
 import datetime
 import random
 
+from discord import FFmpegPCMAudio
 from discord.ext import commands
-from discord.ext.commands import MissingPermissions, MissingRole
+from discord.ext.commands import MissingPermissions, MissingRole, CommandNotFound
 from discord.utils import get
 from discord_slash import SlashCommand
 from discord_components import DiscordComponents, Button, ButtonStyle
-from discord import FFmpegPCMAudio
 
 from pafy import new
 
@@ -25,18 +25,21 @@ from data.items import Items
 ====================================================================================================================
 """
 
-# Сервера
+# Сервера (нужны для быстрой настройки слэш-комманд
 test_servers_id = [936293335063232672]
+
 # Переменные (настройка бота)
 activity = discord.Activity(type=discord.ActivityType.listening, name="Древнерусский рейв")
 intents = discord.Intents.default()
 intents.members = True
-# Переменные (настройка бота)
+
 client = commands.Bot(command_prefix=PREFIX, intents=intents, activity=activity)
 slash = SlashCommand(client, sync_commands=True)
+
 # Подключение к бд
 db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
+
 
 """
 ====================================================================================================================
@@ -48,10 +51,12 @@ db_sess = db_session.create_session()
 # СОБЫТИЕ, показывающее то, что бот запустился
 @client.event
 async def on_ready():
-    # Уведомление
+    # Уведомление об удачном запуске бота
     print("Бот запустился")
+
     # Подключение к каналу "🎶Главная тема" на всех серверах
     await channel_connection()
+
     # Запуск цикла обновления магазина
     await store_update_cycle()
 
@@ -60,46 +65,54 @@ async def on_ready():
 @client.event
 async def on_button_click(interaction):
     decision_type = interaction.component.label
-
-    if decision_type == "Принять обмен":
-        msg = interaction.message
-        embed = msg.embeds[0]
-
-        footer_text = embed.footer.text.split("\n")[1]
-        data = str(base64.b64decode(footer_text))[2:-1]
-        sender_id, other_id, guild_id = map(int, data.split(";"))
-
-        guild = client.get_guild(guild_id)
-        sender_items = embed.fields[0].value
-        other_items = embed.fields[1].value
-
-        if sender_items != "Целое ничего":
-            await swap_items(guild, sender_items, sender_id, other_id)
-        if other_items != "Целое ничего":
-            await swap_items(guild, other_items, sender_id, other_id)
-
-        await guild.get_member(other_id).send("Done!")
-        await guild.get_member(sender_id).send("Done!")
-        await msg.delete()
-        return
-
-    if decision_type == "Отклонить обмен":
-        msg = interaction.message
-        embed = msg.embeds[0]
-
-        footer_text = embed.footer.text.split("\n")[1]
-        data = str(base64.b64decode(footer_text))[2:-1]
-        sender_id, other_id, guild_id = map(int, data.split(";"))
-
-        guild = client.get_guild(guild_id)
-
-        await guild.get_member(sender_id).send(f":x: {guild.get_member(other_id).name} не принял обмен")
-        await msg.delete()
-        return
+    message = interaction.message
+    embed = message.embeds[0]
 
     guild = interaction.guild
     member = interaction.user
-    id_user = f"{member.id}-{guild.id}"
+
+    if "Начать раздачу" in decision_type:
+        dealer_line = embed.fields[3].value.split("\n")[1]
+        dealer_name, dealer_desc = " ".join(dealer_line.split()[1:]).split("#")
+        dealer = get(guild.members, name=dealer_name, discriminator=dealer_desc)
+
+        if member.id != dealer.id:
+            return
+
+        active_card_decks = json.load(open("game_data/active_card_decks.json", encoding="utf8"))
+        active_players_ids = json.load(open("game_data/active_players_ids.json", encoding="utf8"))
+        active_player_decks = json.load(open("game_data/active_player_decks.json", encoding="utf8"))
+
+        deck = DeckOfCards()
+        await deck.shuffle()
+        active_card_decks[str(message.id)] = deck.cards
+
+        active_players = active_players_ids[str(message.id)]
+
+        for player in active_players:
+            active_player_decks[str(message.id)][str(player)] = await deck.take(2)
+
+        player_id = 4 if 3 < len(active_players) else 4 % len(active_players)
+        old_field_value = "\n".join(embed.fields[3].value.split("\n")[:4])
+        embed.set_field_at(3, name="\u200b",
+                           value=f"{old_field_value}\n"
+                                 f"{player_id + 1}.\t{guild.get_member(active_players[player_id])}\n"
+                                 f"Ход раунда: 1 из {len(active_players)}",
+                           inline=True)
+
+        await interaction.send("Раздача завершена!")
+        await message.edit(embed=embed,
+                           components=[Button(style=ButtonStyle.gray, label="Посмотреть свои карты")])
+
+        await commit_changes(active_card_decks, "game_data/active_card_decks.json")
+        await commit_changes(active_player_decks, "game_data/active_player_decks.json")
+
+        return
+
+    if "Посмотреть свои карты" in decision_type:
+        active_player_decks = json.load(open("game_data/active_player_decks.json", encoding="utf8"))
+        await interaction.send(active_player_decks[str(message.id)][str(member.id)])
+        return
 
     if "Купить" in decision_type:
         value_emoji = client.get_emoji(emoji['money'])
@@ -107,19 +120,20 @@ async def on_button_click(interaction):
         item = db_sess.query(Items).filter(Items.name == item_name).first()
         user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
-        if user.money - item.price < 0:
-            await interaction.send(f"***Вам не хватило денег**! Ваш баланс: {user.money} {value_emoji}* "
+        if user.balance < item.price:
+            await interaction.send(f"***Вам не хватило денег**! Ваш баланс: {user.balance} {value_emoji}* "
                                    f"[Это сообщение можно удалить]")
         else:
-            user.money -= item.price
+            user.balance -= item.price
             await add_item(guild, member.id, item_name)
-            await interaction.send(f"*Вы приобрели **{item_name}**! Ваш баланс: {user.money} {value_emoji}* "
+            await interaction.send(f"*Вы приобрели **{item_name}**! Ваш баланс: {user.balance} {value_emoji}* "
                                    f"[Это сообщение можно удалить]")
 
         db_sess.commit()
         return
 
     if decision_type in group_lbl_button_nation:
+        id_user = f"{member.id}-{guild.id}"
         user = db_sess.query(User).filter(User.id == id_user).first()
         user.nation = decision_type
 
@@ -128,6 +142,7 @@ async def on_button_click(interaction):
         return
 
     if decision_type in group_lbl_button_origin:
+        id_user = f"{member.id}-{guild.id}"
         user = db_sess.query(User).filter(User.id == id_user).first()
         user.origin = decision_type
 
@@ -135,21 +150,47 @@ async def on_button_click(interaction):
         db_sess.commit()
         return
 
-    msg = interaction.message
-    embed = msg.embeds[0]
     footer_text = embed.footer.text.split("\n")[1]
     data = str(base64.b64decode(footer_text))[2:-1]
-    sender_id, other_id = map(int, data.split(";")[:-1])
+    guild = client.get_guild(int(data))
 
-    if member.id != sender_id:
+    sender_name, sender_desc = " ".join(embed.fields[0].name.split()[1:])[:-1].split("#")
+    sender = get(guild.members, name=sender_name, discriminator=sender_desc)
+
+    other_name, other_desc = " ".join(embed.fields[1].name.split()[1:])[:-1].split("#")
+    other = get(guild.members, name=other_name, discriminator=other_desc)
+
+    if decision_type == "Принять обмен":
+        sender_items = embed.fields[0].value
+        other_items = embed.fields[1].value
+
+        if sender_items != "Целое ничего":
+            await swap_items(guild, sender_items, sender.id, other.id)
+        if other_items != "Целое ничего":
+            await swap_items(guild, other_items, sender.id, other.id)
+
+        await sender.send("Done!")
+        await other.send("Done!")
+
+        channel = await other.create_dm()
+        msg = await channel.fetch_message(message.id)
+        await msg.delete()
+        return
+
+    if decision_type == "Отклонить обмен":
+        await sender.send(f":x: {other.name} не принял обмен")
+        await message.delete()
+        return
+
+    if member.id != sender.id:
         return
 
     if decision_type == "Отправить обмен":
         await interaction.send("Обмен отправлен! [Это сообщение можно удалить]")
-        await interaction.message.delete()
+        await message.delete()
 
         embed.title = "᲼᲼᲼᲼᲼᲼᲼᲼**˹** Вам было отправлено предложение обмена **˼**"
-        await guild.get_member(other_id).send(
+        await other.send(
             "Вам отправлен обмен! Детали:",
             embed=embed,
             components=[
@@ -161,7 +202,7 @@ async def on_button_click(interaction):
 
     if decision_type == "Отменить обмен":
         await interaction.send("Обмен отменён [Это сообщение можно удалить]")
-        await interaction.message.delete()
+        await message.delete()
         return
 
 
@@ -174,26 +215,28 @@ async def on_reaction_add(reaction, user):
     _emoji = reaction.emoji
     _channel = _message.channel
 
-    if _emoji == "✅" and "Чтобы принять участие в партии покера" in _message.content:
-        text = _message.content
-        members = [await clean_member_id(member.split("  ")[-1]) for member in text.split("\n")[4:]]
+    if _emoji == "✅":
+        if "Чтобы принять участие в партии покера" in _message.content:
+            text = _message.content
+            members = [await clean_member_id(member.split("  ")[-1]) for member in text.split("\n")[4:]]
 
-        if user.id in members:
-            return
+            if user.id in members:
+                return
 
-        if "Отсутствуют :(" in text:
-            text = "\n".join(text.split("\n")[:-1])
-            text += f"\n᲼᲼᲼{numbers_emoji[1]}  {user.mention}"
-        else:
-            number = len(text.split("\n")) - 3
-            text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.mention}"
+            if "Отсутствуют :(" in text:
+                text = "\n".join(text.split("\n")[:-1])
+                text += f"\n᲼᲼᲼{numbers_emoji[1]}  {user.mention}"
+            else:
+                number = len(text.split("\n")) - 3
+                text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.mention}"
 
-        await _message.edit(content=text)
-    if _emoji == "✅" and "КРЕСТИКИ-НОЛИКИ" in _message.content:
-        txt = _message.content.split()
-        if txt[2][:-1] == user.name:
-            await _message.delete()
-            await first_send_tic_tac_toe(_channel, txt[2][:-1], txt[5])
+            await _message.edit(content=text)
+        elif "КРЕСТИКИ-НОЛИКИ" in _message.content:
+            txt = _message.content.split()
+            if txt[2][:-1] == user.name:
+                await _message.delete()
+                await first_send_tic_tac_toe(_channel, txt[2][:-1], txt[5])
+
     if _emoji in [numbers_emoji[i] for i in range(1, 10)]:
         emb = _message.embeds[0]
         if emb.fields[0].value.split()[1][:-1] == user.name:
@@ -226,12 +269,13 @@ async def on_reaction_add(reaction, user):
                 await reaction.remove(_user)
 
 
-# СОБЫТИЕ,
-@client.event
-async def on_command_error(ctx, error):
-    await ctx.message.delete()
-    if isinstance(error, commands.CommandNotFound):
-        await throw_error(ctx, error)
+# # СОБЫТИЕ,
+# @client.event
+# async def on_command_error(ctx, error):
+#     print(error)
+#     if isinstance(error, CommandNotFound):
+#         await ctx.message.delete()
+#         await throw_error(ctx, error)
 
 
 """
@@ -342,7 +386,10 @@ async def write_db(guild):
             user.name = '-1'
             user.nation = '-1'
             user.origin = '-1'
-            user.money = -1
+            user.balance = -1
+            user.level = -1
+            user.xp = -1
+            user.skill_points = -1
             user.health = -1
             user.strength = -1
             user.intelligence = -1
@@ -535,16 +582,19 @@ async def store_update(guild):
             items = list(filter(lambda x: x.type in _type.keys(), items_all.copy()))
             random.shuffle(items)
             items = items[:random.randint(4, 6)]
+
             # Embed сообщения
             emb = discord.Embed(title=f"⮮ __**{_type['NAME']}:**__", color=0xf1c40f)
+            buttons = []
             for item in items:
                 emb.add_field(
                     name=f"**{item.name}:**",
                     value=f"➢ **Цена:** {item.price} {client.get_emoji(emoji['money'])}"
-                          f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
+                          f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```",
+                    inline=False
                 )
-            # Кнопки для покупки
-            buttons = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
+                buttons.append(Button(style=ButtonStyle.gray, label=f"Купить {item.name}"))
+
             # Отправка сообщения
             await store_channel.send(
                 embed=emb,
@@ -585,10 +635,11 @@ async def remove_item(guild, player_id, item):
 
 # ФУНКЦИЯ, которая получает инвентарь игрока формата - {предмет:количество}
 async def get_inventory(player_id, guild):
-    user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
+    user_inventory = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first().inventory
     player_inventory = {}
-    for item in user.inventory.split(";"):
-        player_inventory[item] = player_inventory.get(item, 0) + 1
+    if len(user_inventory) != 0:
+        for item in user_inventory.split(";"):
+            player_inventory[item] = player_inventory.get(item, 0) + 1
     return player_inventory
 
 
@@ -607,9 +658,10 @@ async def get_formatted_items(player_id, guild, items):
 # ФУНКЦИЯ, которая передаёт предметы из одного инвентаря в другой
 async def swap_items(guild, items, sender_id, other_id):
     for line in items.split("\n"):
-        item = line.split()[0]
-        await remove_item(guild, sender_id, item)
-        await add_item(guild, other_id, item)
+        item, amount = line.split(" - ")
+        for _ in range(int(amount[-1])):
+            await remove_item(guild, sender_id, item)
+            await add_item(guild, other_id, item)
 
 
 # КОМАНДА, трейд
@@ -627,10 +679,18 @@ async def swap_items(guild, items, sender_id, other_id):
 async def trade(ctx, member, your_items=None, their_items=None):
     player = ctx.author
     guild = ctx.guild
-    if player == member or member.bot or get(guild.roles, name="Игрок") not in member.roles:
-        raise IncorrectUser
+    if player == member:
+        raise IncorrectUser("- Совершать обмены с самим собой невозможно!\n"
+                            "Если вам не с кем обмениваться, то стоит поискать друзей?")
+    if member.bot:
+        raise IncorrectUser("- Нельзя обмениваться с Ботами!")
+    if get(guild.roles, name="Игрок") not in member.roles:
+        raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
+
     if not your_items and not their_items:
-        raise IncompleteTrade
+        raise IncompleteTrade(f"- Вы не закончили трейд!\n"
+                              f"Если Вы ничего не добавили в обмен, "
+                              f"то зачем Вам обмениваться с {member.name} вообще?")
 
     formatted_player_offer_items = ["Целое ничего"] if not your_items else \
         await get_formatted_items(player.id, guild, your_items)
@@ -639,11 +699,10 @@ async def trade(ctx, member, your_items=None, their_items=None):
         await get_formatted_items(member.id, guild, their_items)
 
     embed = discord.Embed(title="᲼᲼᲼᲼᲼᲼᲼᲼**˹** Предложение обмена сформировано **˼**", color=0xFFFFF0)
-    encoded_data = base64.b64encode(f"{player.id};{member.id};{guild.id}".encode("UTF-8"))
-    extra_info = str(encoded_data)[2:-1]
+    extra_info = str(base64.b64encode(str(guild.id).encode("UTF-8")))[2:-1]
 
-    embed.add_field(name=f"Предметы\t{player.name}:", value="\n".join(formatted_player_offer_items))
-    embed.add_field(name=f"Предметы\t{member.name}:", value="\n".join(formatted_member_offer_items))
+    embed.add_field(name=f"Предметы\t{player}:", value="\n".join(formatted_player_offer_items))
+    embed.add_field(name=f"Предметы\t{member}:", value="\n".join(formatted_member_offer_items))
     embed.set_footer(text=f"┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈━━━┈\n{extra_info}")
 
     msg = await ctx.send("Обмен сформирован!")
@@ -668,15 +727,18 @@ async def trade(ctx, member, your_items=None, their_items=None):
 @commands.has_role("Игрок")
 async def money_transfer(ctx, member, amount):
     guild = ctx.guild
-    if member and (member.bot or get(guild.roles, name="Игрок") not in member.roles):
-        raise IncorrectUser
+    if member.bot:
+        raise IncorrectUser("- Ботам передавать деньги нельзя!\n"
+                            "(Я бы в принципе не доверял им, кроме меня, конечно, я лучший бот, почти человек!)")
+    if get(guild.roles, name="Игрок") not in member.roles:
+        raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
 
     player = ctx.author
     player_user = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
     member_user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
-    player_user.money -= amount
-    member_user.money += amount
+    player_user.balance -= amount
+    member_user.balance += amount
 
     await ctx.send("Обмен состоялся!")
     db_sess.commit()
@@ -692,31 +754,38 @@ async def money_transfer(ctx, member, amount):
 @commands.has_role("Игрок")
 async def open_inventory(ctx, member=None):
     guild = ctx.guild
-    if member and (member.bot or get(guild.roles, name="Игрок") not in member.roles):
-        raise IncorrectUser
+    if member:
+        if member.bot:
+            raise IncorrectUser("- У ботов нет инвентаря!\n"
+                                "Даже не пытайтесь открыть у них инвентарь - это бесполезно!")
+        if get(guild.roles, name="Игрок") not in member.roles:
+            raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
 
     value_emoji = client.get_emoji(emoji["money"])
     player = member if member else ctx.author
     player_inventory = await get_inventory(player.id, guild)
-    emb = discord.Embed(title=f"**˹ Инвентарь {player.name}˼**", color=0xFFFFF0)
+    embed = discord.Embed(title=f"**˹ Инвентарь {player.name}˼**", color=0xFFFFF0)
 
-    item_id = 1
-    for item, amount in player_inventory.items():
-        item_obj = db_sess.query(Items).filter(Items.name == item).first()
-        text = f"**Порядковый ID: {item_id}**\n" \
-               f"Кол-во: {amount}\n" \
-               f"Цена: {item_obj.price} {value_emoji}\n" \
-               f"Описание: {item_obj.description}"
+    if len(player_inventory.keys()) != 0:
+        item_id = 1
+        for item, amount in player_inventory.items():
+            item_obj = db_sess.query(Items).filter(Items.name == item).first()
+            text = f"**Порядковый ID: {item_id}**\n" \
+                   f"Кол-во: {amount}\n" \
+                   f"Цена: {item_obj.price} {value_emoji}\n" \
+                   f"Описание: {item_obj.description}"
 
-        emb.add_field(name=f"**__{item.upper()}__**",
-                      value=text,
-                      inline=True)
-        item_id += 1
+            embed.add_field(name=f"**__{item.upper()}__**",
+                            value=text,
+                            inline=True)
+            item_id += 1
+    else:
+        embed.add_field(name="Полностью пуст", value="\u200b")
 
-    balance = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().money
-    emb.set_footer(text=f"Баланс: {balance} Gaudium")
+    balance = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().balance
+    embed.set_footer(text=f"Баланс: {balance} Gaudium")
 
-    await ctx.send(embed=emb)
+    await ctx.send(embed=embed)
 
 
 """
@@ -739,8 +808,7 @@ async def open_inventory(ctx, member=None):
 @commands.has_role("Игрок")
 async def send_invite_tic_tac_toe(ctx, member):
     if member.bot:
-        await ctx.send(":x: **Бота нельзя пригласить в игру.**")
-        return
+        raise IncorrectUser("- С ботом играть нельзя!")
     msg = await ctx.send(f"**КРЕСТИКИ-НОЛИКИ**\n*| {member.name}! Вас приглашает {ctx.author.name} "
                          f"сыграть в крестики-нолики!* __*Для подтверждения нажмите на ✅.*__\n"
                          f"||{member.mention}{ctx.author.mention}||")
@@ -803,21 +871,25 @@ async def poker_help(ctx):
     name="start_poker_session",
     description="Начать игру в покер.",
     options=[{"name": "members", "description": "Игроки, участвующие в игре. Совет! Просто упомените всех "
-                                                "игроков в покер (от 2 до 10 человек)", "type": 3, "required": True},
-             {"name": "bet", "description": "Минимально возможная ставка за один ход", "type": 4, "required": True}],
+                                                "игроков в покер (от 2 до 5 человек)", "type": 3, "required": True},
+             {"name": "bet", "description": "Плата за вход в игру и размер "
+                                            "обязательной ставки (минимум - 10)", "type": 4, "required": True}],
     guild_ids=test_servers_id
 )
 @commands.has_role("Игрок")
 async def start_poker_session(ctx, members, bet):
     guild = ctx.guild
     raw_member_data = members.split("><") + [ctx.author.id]
-    if not 2 <= len(raw_member_data) <= 10:
-        raise IncorrectMemberAmount
+    if not 2 <= len(raw_member_data) <= 5:
+        raise IncorrectMemberAmount(f"- Неверное количество игроков!\n"
+                                    f"Для игры в покер нужно от 2 до 5 человек. У вас - {len(raw_member_data)}.")
 
     members = [guild.get_member(await clean_member_id(member_id)) for member_id in raw_member_data]
     for member in members:
-        if member.bot or get(guild.roles, name="Игрок") not in member.roles:
-            raise IncorrectUser
+        if member.bot:
+            raise IncorrectUser(f"- Выбран неверный пользователь.\n{member.name} - бот!")
+        if get(guild.roles, name="Игрок") not in member.roles:
+            raise IncorrectUser(f"- Выбран неверный пользователь.\nУ {member.name} нет роли \"Игрок\"!")
 
     channel_name = f"poker-lobby-{''.join(filter(str.isalnum, ctx.author.name))}".lower()
     channel = get(guild.channels, name=channel_name)
@@ -829,6 +901,10 @@ async def start_poker_session(ctx, members, bet):
     await channel.set_permissions(guild.default_role, send_messages=False, read_messages=False)
     for member in members:
         await channel.set_permissions(member, send_messages=True, read_messages=True)
+
+    games_history = json.load(open("game_data/games_history.json"))
+    print(games_history)
+    games_history[str(channel.id)] = 0
 
     members_mentions = [member.mention for member in members]
     members_list = "\n".join(members_mentions)
@@ -843,58 +919,173 @@ async def start_poker_session(ctx, members, bet):
     await msg.add_reaction("✅")
     await msg.pin()
 
+    await commit_changes(games_history, "game_data/games_history.json")
+
 
 @client.command()
 @commands.has_role("Игрок")
 async def play(ctx):
-    pins = await ctx.channel.pins()
-    message = pins[0].content
-    members = [await clean_member_id(member.split("  ")[-1]) for member in message.split("\n")[4:]] * 5
+    guild = ctx.guild
+    channel = ctx.channel
+    pins = await channel.pins()
+    message_text = pins[-1].content
 
-    embed = discord.Embed(title=f"Партия в покер в процессе", color=44444)
+    games_history = json.load(open("game_data/games_history.json"))
+
+    bet = int(message_text.split("\n")[2].split()[7]) // 1.5
+    members_ids = [await clean_member_id(member.split("  ")[-1]) for member in message_text.split("\n")[4:]] * 2
+    members = [guild.get_member(member_id) for member_id in members_ids]
+    value_emoji = client.get_emoji(emoji["money"])
+
+    games_count = games_history[str(channel.id)]
+    dealer_id = games_count if games_count < len(members) else games_count % len(members)
+    dealer = members[dealer_id]
+
+    small_blind_id = dealer_id + 1 if dealer_id + 1 < len(members) else (dealer_id + 1) % len(members)
+    blind_id = dealer_id + 2 if dealer_id + 2 < len(members) else (dealer_id + 2) % len(members)
+
+    db_sess.query(User).filter(User.id == f"{members_ids[small_blind_id]}-{guild.id}").first().balance -= bet // 2
+    db_sess.query(User).filter(User.id == f"{members_ids[blind_id]}-{guild.id}").first().balance -= bet
+
+    embed = discord.Embed(title=f"Партия в покер в процессе", color=0x99d98c)
+
+    members_text = [[], []]
+    member_pos = 1
+    column = 0
     for member in members:
-        embed.add_field(name=ctx.guild.get_member(member).name, value="money", inline=True)
+        balance = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first().balance
+        members_text[column].append(f"**{member_pos}.\t{member.name}:**\n"
+                                    f"Баланс:\t{balance} {value_emoji}")
+        if member_pos == len(members) % 2 + len(members) // 2:
+            column += 1
+        member_pos += 1
 
-    await ctx.send(embed=embed)
-    print(members)
+    embed.add_field(name="\u200b", value="\n\n".join(members_text[0]), inline=True)
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
+    embed.add_field(name="\u200b", value="\n\n".join(members_text[1]), inline=True)
+
+    embed.add_field(name="\u200b",
+                    value=f"**Дилер:**\n"
+                          f"{dealer_id + 1}.\t{dealer}\n\n"
+                          f"**Сейчас ходит:**\n"
+                          f"Никто не ходит.\n"
+                          f"(Ожидание раздачи карт)",
+                    inline=True)
+    embed.add_field(name="\u200b", value="\u200b", inline=True)
+    embed.add_field(name="\u200b",
+                    value=f"**Общий куш:**\n"
+                          f"{round(1.5 * bet)} {value_emoji}\n\n"
+                          f"**Минимальная ставка:**\n"
+                          f"{round(bet)} {value_emoji}",
+                    inline=True)
+
+    embed.add_field(name="\u200b", value="**Открытые карты:**\n"
+                                         "Отсутствуют", inline=True)
+    embed.add_field(name="\u200b", value="**Последнее действие:**\n"
+                                         "Пока отсутсвует.\n"
+                                         "(Ожидание ставок после раздачи)", inline=True)
+
+    # await pins[0].unpin()
+    message = await ctx.send(embed=embed,
+                             components=[Button(style=ButtonStyle.green, label="Начать раздачу")])
+    await message.pin()
+
+    active_players_ids = json.load(open("game_data/active_players_ids.json", encoding="utf8"))
+    active_player_decks = json.load(open("game_data/active_player_decks.json", encoding="utf8"))
+
+    games_history[str(channel.id)] += 1
+
+    active_players_ids[str(message.id)] = members_ids
+    active_player_decks[str(message.id)] = {}
+
+    await commit_changes(games_history, "game_data/games_history.json")
+    await commit_changes(active_players_ids, "game_data/active_players_ids.json")
+    await commit_changes(active_player_decks, "game_data/active_player_decks.json")
+    db_sess.commit()
+
+
+@client.command(name="bet")
+@commands.has_role("Игрок")
+async def _bet(ctx, bet_amount):
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
+
+    pot, minimal_bet = await get_current_game_info(ctx)
+    if minimal_bet > bet_amount:
+        bet_amount = minimal_bet
+
+
+@client.command()
+@commands.has_role("Игрок")
+async def all_in(ctx):
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
 
 @client.command()
 @commands.has_role("Игрок")
 async def call(ctx):
-    pass
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
+
+    current_game_info = await get_current_game_info(ctx)
 
 
 @client.command()
 @commands.has_role("Игрок")
 async def fold(ctx):
-    pass
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
 
 @client.command()
 @commands.has_role("Игрок")
 async def reraise(ctx):
-    pass
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
 
 @client.command()
 @commands.has_role("Игрок")
 async def check(ctx):
-    pass
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
 
 @client.command(name="raise")
 @commands.has_role("Игрок")
 async def _raise(ctx):
-    pass
+    current_player = await get_current_player(ctx)
+    if current_player.id != ctx.authur.id:
+        raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
 
 @client.command()
 async def leave(ctx):
-    member = ctx.author
-    channel = ctx.channel
+    await ctx.channel.set_permissions(ctx.author, send_messages=False, read_messages=False)
 
-    await channel.set_permissions(member, send_messages=False, read_messages=False)
+
+async def get_current_game_info(ctx):
+    pin = await ctx.channel.pins()[0]
+    embed = pin.embeds[0]
+    raw_data = embed.fields[5].value.split("\n")
+
+    return raw_data[1].split()[0], raw_data[4].split()[0]
+
+
+async def get_current_player(ctx):
+    pin = await ctx.channel.pins()[0]
+    embed = pin.embeds[0]
+    current_player_line = embed.fields[3].value.split("\n")[4]
+    current_player_name, current_player_desc = " ".join(current_player_line.split()[1:]).split("#")
+
+    return get(ctx.guild.members, name=current_player_name, discriminator=current_player_desc)
 
 
 """
@@ -902,6 +1093,11 @@ async def leave(ctx):
 ===================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ =======================================
 ====================================================================================================================
 """
+
+
+# # 50 * (level ^ 2) - (50 * level)
+# async def add_xp(member_id, xp):
+#     pass
 
 
 async def clean_member_id(member_id):
@@ -974,32 +1170,32 @@ async def name(ctx, *args):
 )
 @commands.has_role("Игрок")
 async def move(ctx, city):
+    if city.name not in ["Тополис", "Браифаст", "Джадифф"]:
+        raise IncorrectCityName(f"- {city.name} - не является названием существующего города!")
+
     guild = ctx.guild
     author = ctx.author
     user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
 
-    if city.name in ["Тополис", "Браифаст", "Джадифф"]:
-        if city in author.roles:
-            await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
-            return
-        # Удаление роли прошлого города
-        await author.remove_roles(get(guild.roles, name="Тополис"))
-        await author.remove_roles(get(guild.roles, name="Браифаст"))
-        await author.remove_roles(get(guild.roles, name="Джадифф"))
-        time_second = 8 * (60 - int(user.speed))
-        # Уведомление
-        await ctx.send(f"**{author.mention} отправился в город {city.name}.**")
-        await author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} "
-                          f"минут {time_second % 60} секунд.**")
-        # Таймер
-        await asyncio.sleep(time_second)
-        # Добавление роли нового города
-        await author.add_roles(city)
-        # Уведомление
-        await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{author.mention} *прибыл!*")
-        await author.send(f":white_check_mark: **С прибытием в {city.name}.**")
-    else:
-        await ctx.send(':x: **Выберите роль обозначающую город.**')
+    if city in author.roles:
+        await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
+        return
+    # Удаление роли прошлого города
+    await author.remove_roles(get(guild.roles, name="Тополис"))
+    await author.remove_roles(get(guild.roles, name="Браифаст"))
+    await author.remove_roles(get(guild.roles, name="Джадифф"))
+    time_second = 8 * (60 - int(user.speed))
+    # Уведомление
+    await ctx.send(f"**{author.mention} отправился в город {city.name}.**")
+    await author.send(f":white_check_mark: **Время которое затратиться на дорогу: {str(time_second / 60)[0]} "
+                      f"минут {time_second % 60} секунд.**")
+    # Таймер
+    await asyncio.sleep(time_second)
+    # Добавление роли нового города
+    await author.add_roles(city)
+    # Уведомление
+    await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{author.mention} *прибыл!*")
+    await author.send(f":white_check_mark: **С прибытием в {city.name}.**")
 
 
 """
@@ -1007,6 +1203,46 @@ async def move(ctx, city):
 ========================================== РАЗДЕЛ С ОБРАБОТЧИКАМИ ОШИБОК ===========================================
 ====================================================================================================================
 """
+
+
+@all_in.error
+async def all_in_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@_bet.error
+async def bet_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@call.error
+async def call_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@fold.error
+async def fold_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@reraise.error
+async def reraise_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@_raise.error
+async def _raise_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@check.error
+async def check_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+@send_invite_tic_tac_toe.error
+async def send_invite_tic_tac_toe_error(ctx, error):
+    await throw_error(ctx, error)
 
 
 @start_poker_session.error
@@ -1049,20 +1285,11 @@ async def inventory_error(ctx, error):
 async def throw_error(ctx, error):
     text = error
 
-    if isinstance(error, IncorrectTradeValues):
-        text = "- Неверно заданы параметры для трейда. \n NB! Формат предметов выглядит так:" \
-               " ID_предмета1:количество_предмета1,ID_предмета2:количество_предмета2"
-    if isinstance(error, IncompleteTrade):
-        text = "- Не стоит отправлять пустые обмены.\n NB! Если у вас нечего отправить другому человеку, " \
-               "то стоит поиграть немного и получить немного предметов!"
-    if isinstance(error, IncorrectUser):
-        text = "- Выбран неверный пользователь для действия.\n" \
-               "NB! Нельзя выбирать ботов, самого себя и пользователей без роли \"Игрок\"!"
     if isinstance(error, MissingRole):
         text = f"- У вас нет роли \"Игрок\" для использования этой команды."
     if isinstance(error, MissingPermissions):
         text = "- У вас недостаточно прав для использования этой команды. (Как иронично)"
-    if isinstance(error, commands.CommandNotFound):
+    if isinstance(error, CommandNotFound):
         text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
 
     emb = discord.Embed(title="__**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ**__", color=0xed4337)

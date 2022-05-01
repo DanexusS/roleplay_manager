@@ -12,7 +12,11 @@ class User(SqlAlchemyBase):
     nation = sqlalchemy.Column(sqlalchemy.String, nullable=True)
     origin = sqlalchemy.Column(sqlalchemy.String, nullable=True)
 
-    money = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    balance = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+
+    level = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    xp = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
+    skill_points = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
 
     health = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)
     strength = sqlalchemy.Column(sqlalchemy.Integer, nullable=True)

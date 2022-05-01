@@ -26,6 +26,13 @@ numbers_emoji = {
     10: "🔟"
 }
 
+playing_cards_emoji = {
+    "Clubs": 970002047334232074,
+    "Spades": 970002992470319205,
+    "Diamonds": 970003739081605231,
+    "Hearts": 970003997257773076
+}
+
 # Группа названий кнопок расы
 group_lbl_button_nation = ['Северяне', 'Южане', 'Техно-гики']
 
@@ -36,10 +43,7 @@ group_lbl_button_origin = ['Богатая семья', 'Обычная семь
 # types = non-game, game, all, city_topolis, city_braifast, city_jadiff, music
 Objects = json.load(open("objects.json", encoding="utf8"))
 
-cards = []
-for key, value in json.load(open("cards.json", encoding="utf8")).items():
-    for card in value:
-        cards.append(f"{card} - {key}")
+cards = json.load(open("cards.json", encoding="utf8"))
 
 # Роли
 roles_game = {
