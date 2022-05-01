@@ -116,7 +116,7 @@ async def on_button_click(interaction):
 
     if "Купить" in decision_type:
         value_emoji = client.get_emoji(emoji['money'])
-        item_name = decision_type.split()[1]
+        item_name = ' '.join(decision_type.split()[1:])
         item = db_sess.query(Items).filter(Items.name == item_name).first()
         user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
@@ -338,7 +338,7 @@ async def send_registration_msg(channel):
     # ======= СОЗДАНИЕ ИМЕНИ
     text = '*```yaml\n' \
            '➢ Желаемое вами имя напишите в данный чат с помощью команды: "/name".\n' \
-           '➢ Имя не влияет на характеристики.\n' \
+           '➢ Имя не влияет на характеристики, при написании команды напишите имя маленькими буквами.\n' \
            '➢ Вводите имя с умом так как его можно будет изменить только через админа.' \
            '➢ После написания имени вы завершите создание профиля.```*'
     emb = discord.Embed(title='⮮ __**Ваше имя:**__', color=44444)
@@ -351,15 +351,15 @@ async def send_registration_msg(channel):
 async def send_information_msg(channel):
     # ======= История
     text = '*```yaml\n' \
-           '  Около века назад человечество смогло покинуть Землю и освоить Марс, на нём люди нашли руду под' \
-           'названием Экзорий. Люди тщательно изучали Экзорий, и открыли для себя много разных свойств этой руды, в' \
+           '  Около века назад человечество смогло покинуть Землю и освоить Марс, на нём люди нашли руду под ' \
+           'названием Экзорий. Люди тщательно изучали Экзорий, и открыли для себя много разных свойств этой руды, в ' \
            'результате многих экспериментов люди смогли извлекать из этой руды много энергии с огромной мощью. В ходе' \
-           'таких открытий люди смогли быстро развить технологии и освоить космос намного лучше, человечество стало' \
+           ' таких открытий люди смогли быстро развить технологии и освоить космос намного лучше, человечество стало' \
            'путешествовать и колонизировать различные планеты в различных звёздных системах.\n' \
-           '  Земля в своё время, к сожалению стала деградировать, из за экспериментов которые проводили на Земле и' \
-           'людей отвергающих новые технологии, родная планета человечества через некоторое время стала скверным' \
-           'местом. На Землю стали отправлять неугодных людей, которые совершали какие либо преступление. Уже' \
-           'несколько поколений люди с планеты Земля живут в ужасном мире этой планеты. Вы родились на Земле, и' \
+           '  Земля в своё время, к сожалению стала деградировать, из за экспериментов которые проводили на Земле и ' \
+           'людей отвергающих новые технологии, родная планета человечества через некоторое время стала скверным ' \
+           'местом. На Землю стали отправлять неугодных людей, которые совершали какие либо преступление. Уже ' \
+           'несколько поколений люди с планеты Земля живут в ужасном мире этой планеты. Вы родились на Земле, и ' \
            'вам предстоит на ней выжить.```*'
     emb = discord.Embed(title='⮮ __**История:**__', color=44444)
     emb.add_field(name='**――**', value=text, inline=False)
@@ -386,16 +386,16 @@ async def write_db(guild):
             user.name = '-1'
             user.nation = '-1'
             user.origin = '-1'
-            user.balance = -1
-            user.level = -1
-            user.xp = -1
-            user.skill_points = -1
-            user.health = -1
-            user.strength = -1
-            user.intelligence = -1
-            user.dexterity = -1
-            user.speed = -1
-            user.inventory = 'Glock 21;Glock 21;Glock 21;Glock 21'
+            user.balance = 0
+            user.level = 1
+            user.xp = 0
+            user.skill_points = 0
+            user.health = 5
+            user.strength = 5
+            user.intelligence = 5
+            user.dexterity = 5
+            user.speed = 5
+            user.inventory = ''
             db_sess.add(user)
             chek_write_db = True
     db_sess.commit()
@@ -570,10 +570,14 @@ async def store_update(guild):
         types = [
             {"NAME": "ОРУЖИЕ",
              "firearms": "Огнестрельное оружие.",
+             "firearms_auto": "Автоматическое огнестрельное оружие.",
              "steel arms": "Холодное оружие.",
              "energy weapon": "Энергетическое оружие."},
             {"NAME": "ОДЕЖДА",
-             "armor": "Одежда, броня."},
+             "armor_head": "Головные уборы.",
+             "armor_body": "Верхняя одежда.",
+             "armor_legs": "Поножи.",
+             "armor_feet": "Обувь."},
             {"NAME": "ЕДА",
              "food": "Еда."}
         ]
@@ -582,19 +586,16 @@ async def store_update(guild):
             items = list(filter(lambda x: x.type in _type.keys(), items_all.copy()))
             random.shuffle(items)
             items = items[:random.randint(4, 6)]
-
             # Embed сообщения
             emb = discord.Embed(title=f"⮮ __**{_type['NAME']}:**__", color=0xf1c40f)
-            buttons = []
             for item in items:
                 emb.add_field(
                     name=f"**{item.name}:**",
                     value=f"➢ **Цена:** {item.price} {client.get_emoji(emoji['money'])}"
-                          f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```",
-                    inline=False
+                          f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
                 )
-                buttons.append(Button(style=ButtonStyle.gray, label=f"Купить {item.name}"))
-
+            # Кнопки для покупки
+            buttons = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
             # Отправка сообщения
             await store_channel.send(
                 embed=emb,
@@ -620,7 +621,8 @@ async def store_update_cycle():
 
 # ФУНКЦИЯ, добавляющая предмет в инвентарь
 async def add_item(guild, player_id, item):
-    db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first().inventory += f";{item}"
+    user = db_sess.query(User).filter(User.id == f"{player_id}-{guild.id}").first()
+    user.inventory += f"{';' if user.inventory != '' else ''}{item}"
     db_sess.commit()
 
 
@@ -737,10 +739,15 @@ async def money_transfer(ctx, member, amount):
     player_user = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
     member_user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
+    if amount < 1:
+        raise IncorrectMemberAmount(f"- Минимальная сумма перевода = 1!")
+    if player_user.balance < amount:
+        raise IncorrectMemberAmount(f"- У {player_user.name} нет столько денег!")
+
     player_user.balance -= amount
     member_user.balance += amount
 
-    await ctx.send("Обмен состоялся!")
+    await ctx.send(":white_check_mark: **Обмен состоялся!**")
     db_sess.commit()
 
 
@@ -764,16 +771,17 @@ async def open_inventory(ctx, member=None):
     value_emoji = client.get_emoji(emoji["money"])
     player = member if member else ctx.author
     player_inventory = await get_inventory(player.id, guild)
-    embed = discord.Embed(title=f"**˹ Инвентарь {player.name}˼**", color=0xFFFFF0)
+    player_name = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().name
+    embed = discord.Embed(title=f"**˹ Инвентарь {player_name}˼**", color=0xFFFFF0)
 
     if len(player_inventory.keys()) != 0:
         item_id = 1
         for item, amount in player_inventory.items():
             item_obj = db_sess.query(Items).filter(Items.name == item).first()
-            text = f"**Порядковый ID: {item_id}**\n" \
-                   f"Кол-во: {amount}\n" \
-                   f"Цена: {item_obj.price} {value_emoji}\n" \
-                   f"Описание: {item_obj.description}"
+            text = f"**Порядковый ID:** *{item_id}*\n" \
+                   f"**Количество:** *{amount}*\n" \
+                   f"**Цена:** *{item_obj.price} {value_emoji}*\n" \
+                   f"**Описание:** *{item_obj.description}*"
 
             embed.add_field(name=f"**__{item.upper()}__**",
                             value=text,
@@ -1095,11 +1103,19 @@ async def get_current_player(ctx):
 """
 
 
-# # 50 * (level ^ 2) - (50 * level)
-# async def add_xp(member_id, xp):
-#     pass
+# ФУНКЦИЯ, добавляющая xp, lvl
+async def add_level(guild, member_id, xp):
+    user = db_sess.query(User).filter(User.id == f"{member_id}-{guild.id}").first()
+    user.xp += xp
+    need_xp = 50 * (user.level ^ 2) - (50 * user.level)
+    if user.xp <= need_xp:
+        user.xp = user.xp % need_xp
+        user.level += 1
+        user.skill_points += 1
+    db_sess.commit()
 
 
+# ФУНКЦИЯ, делающая чистый id пользователя
 async def clean_member_id(member_id):
     try:
         return int(str(member_id).replace("<", "").replace(">", "").replace("!", "").replace("@", ""))
@@ -1134,7 +1150,7 @@ async def name(ctx, *args):
         await member.send(f":x: **Введите имя через пробел после команды, имя не может отсутствовать.**")
         return
 
-    _name = ' '.join(args)
+    _name = ' '.join(map(lambda x: x.capitalize(), args))
     user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
     for role in member.roles:
@@ -1142,22 +1158,59 @@ async def name(ctx, *args):
             await member.send(':x: **Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
             return
     if user.nation == '-1' or user.origin == '-1':
-        await member.send(':x: **Вы не можете создать профиль не выбрав расу или происхождение!**')
+        await member.send(':x: **Вы не можете создать профиль не выбрав расу и происхождение!**')
         return
     await member.send(':white_check_mark: **Вы успешно создали своего персонажа, удачной игры!**')
 
+    # Устанавливаем имя
     user.name = _name
     # Добавляется роль @Игрок
     role = get(guild.roles, name="Игрок")
     await member.add_roles(role)
-    # Добавляется роль в зависимости от города
+    # Изменяем характеристики в зависимости от расы и роль в зависимости от города
     if user.nation == 'Северяне':
+        # характеристики
+        user.health += 2
+        user.strength += 2
+        user.intelligence -= 2
+        user.dexterity -= 2
+        # роль
         role = get(guild.roles, name="Тополис")
     elif user.nation == 'Техно-гики':
+        # характеристики
+        user.intelligence += 3
+        user.dexterity += 1
+        user.health -= 1
+        user.strength -= 3
+        # роль
         role = get(guild.roles, name="Браифаст")
     elif user.nation == 'Южане':
+        # характеристики
+        user.health += 1
+        user.speed += 3
+        user.intelligence -= 4
+        # роль
         role = get(guild.roles, name="Джадифф")
     await member.add_roles(role)
+    # Изменяем характеристики в зависимости от происхождения
+    if user.origin == 'Богатая семья':
+        # деньги
+        user.balance = 14000
+        # характеристики
+        user.strength -= 2
+        user.dexterity -= 2
+    elif user.origin == 'Обычная семья':
+        # деньги
+        user.balance = 4500
+        # характеристики
+    elif user.origin == 'Бедность':
+        # деньги
+        user.balance = 500
+        # характеристики
+        user.strength += 2
+        user.dexterity += 2
+        user.speed += 2
+    # Комит
     db_sess.commit()
 
 
@@ -1178,8 +1231,8 @@ async def move(ctx, city):
     user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
 
     if city in author.roles:
-        await ctx.send(':x: **Нельзя выбрать город в котором вы находитесь.**')
-        return
+        raise IncorrectCityName(f"- Вы и так находитесь в {city.name}!")
+
     # Удаление роли прошлого города
     await author.remove_roles(get(guild.roles, name="Тополис"))
     await author.remove_roles(get(guild.roles, name="Браифаст"))
@@ -1196,6 +1249,40 @@ async def move(ctx, city):
     # Уведомление
     await get(guild.channels, name=f"таверна-{city.name[0].lower()}").send(f"{author.mention} *прибыл!*")
     await author.send(f":white_check_mark: **С прибытием в {city.name}.**")
+
+
+# КОМАНДА, для вливания скилл поинтов в характеристики
+@slash.slash(
+    name="profile",
+    description="Показывает ваши характеристики, сколько у вас свободных очков навыка и прочую информацию.",
+    guild_ids=test_servers_id
+)
+@commands.has_role("Игрок")
+async def profile(ctx):
+    guild = ctx.guild
+    author = ctx.author
+    user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
+    # ======= ПРОФИЛЬ
+    emb = discord.Embed(title=f"⮮ __**{user.name}:**__", color=44444)
+
+    emb.add_field(name='**Баланс:**', value=f"*```yaml\n{user.balance} Gaudium```*", inline=False)
+    text1 = f"*```yaml\n" \
+            f"Раса ➢ {user.nation}\n" \
+            f"Происхождение ➢ {user.origin}```*"
+    emb.add_field(name='**Сведения:**', value=text1, inline=False)
+    text2 = f"*```yaml\n" \
+            f"Здоровье ➢ {user.health}\n" \
+            f"Сила ➢ {user.strength}\n"\
+            f"Интелект ➢ {user.intelligence}\n" \
+            f"Маторика ➢ {user.dexterity}\n" \
+            f"Скорость ➢ {user.speed}```*"
+    emb.add_field(name='**Характеристики:**', value=text2, inline=False)
+    emb.add_field(name='**Свободных очков навыка:**', value=f"*```yaml\n{user.skill_points}```*", inline=False)
+
+    emb.set_thumbnail(url=author.avatar_url)
+    emb.set_footer(text=f"Никнейм Discord: {author.name}")
+
+    await ctx.send(embed=emb)
 
 
 """
@@ -1262,6 +1349,12 @@ async def trade_error(ctx, error):
     await throw_error(ctx, error)
 
 
+# Обработчик ошибок функции money_transfer
+@money_transfer.error
+async def money_transfer_error(ctx, error):
+    await throw_error(ctx, error)
+
+
 # Обработчик ошибок функции implement
 @implement.error
 async def implementation_error(ctx, error):
@@ -1292,7 +1385,7 @@ async def throw_error(ctx, error):
     if isinstance(error, CommandNotFound):
         text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
 
-    emb = discord.Embed(title="__**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ**__", color=0xed4337)
+    emb = discord.Embed(title="⮮ __**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ:**__", color=0xed4337)
     emb.add_field(name="**Причина:**",
                   value=f"```diff\n{text}\n```",
                   inline=False)
