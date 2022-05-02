@@ -238,21 +238,21 @@ async def on_reaction_add(reaction, user):
                 await first_send_tic_tac_toe(_channel, txt[2][:-1], txt[5])
 
     if _emoji in [numbers_emoji[i] for i in range(1, 10)]:
-        emb = _message.embeds[0]
-        if emb.fields[0].value.split()[1][:-1] == user.name:
+        embed = _message.embeds[0]
+        if embed.fields[0].value.split()[1][:-1] == user.name:
             # num = 0
             # for i in range(1, 10):
             #     if numbers_emoji[i] == _emoji:
             #         num = i
             #         break
             #
-            # p1 = emb.fields[0].value.split()[1][:-1]
-            # p2, p3 = emb.footer.text.split()[1][:-1], emb.footer.text.split()[3]
+            # p1 = embed.fields[0].value.split()[1][:-1]
+            # p2, p3 = embed.footer.text.split()[1][:-1], embed.footer.text.split()[3]
             # player = p2 if p1 == p2 else p3
             #
             # cross_and_zero = []
             # count = 1
-            # for elem in emb.fields[1].value:
+            # for elem in embed.fields[1].value:
             #     if elem in ['❌', '⭕']:
             #         if count == num:
             #             if player == p2:
@@ -261,9 +261,9 @@ async def on_reaction_add(reaction, user):
             #         count += 1
             # print(cross_and_zero)
             #
-            # emb.fields[0].value = f"*Ходит: {p2 if player != p2 else p3}*"
+            # embed.fields[0].value = f"*Ходит: {p2 if player != p2 else p3}*"
             #
-            # await msg.edit(embed=emb)
+            # await msg.edit(embed=embed)
 
             for _user in await reaction.users().flatten():
                 await reaction.remove(_user)
@@ -309,11 +309,11 @@ async def send_registration_msg(channel):
     text = '*```yaml\n' \
            '➢ От расы зависят некоторые характеристики.\n' \
            '➢ Пока вы не завершите создание профиля вы можете перевыбирать расу.```*'
-    emb = discord.Embed(title='⮮ __**Выбор расы:**__', color=44444)
-    emb.add_field(name='**Важно:**', value=text, inline=False)
+    embed = discord.Embed(title='⮮ __**Выбор расы:**__', color=44444)
+    embed.add_field(name='**Важно:**', value=text, inline=False)
 
     await channel.send(
-        embed=emb,
+        embed=embed,
         components=[
             [Button(style=ButtonStyle.gray, label="Северяне", emoji=client.get_emoji(emoji["north"])),
              Button(style=ButtonStyle.gray, label="Южане", emoji=client.get_emoji(emoji["south"])),
@@ -324,11 +324,11 @@ async def send_registration_msg(channel):
     text = '*```yaml\n' \
            '➢ От происхождения зависят некоторые характеристики.\n' \
            '➢ Пока вы не завершите создание профиля вы можете перевыбирать происхождение.```*'
-    emb = discord.Embed(title='⮮ __**Выбор происхождения:**__', color=44444)
-    emb.add_field(name='**Важно:**', value=text, inline=False)
+    embed = discord.Embed(title='⮮ __**Выбор происхождения:**__', color=44444)
+    embed.add_field(name='**Важно:**', value=text, inline=False)
 
     await channel.send(
-        embed=emb,
+        embed=embed,
         components=[
             [Button(style=ButtonStyle.gray, label="Богатая семья", emoji=client.get_emoji(emoji["rich"])),
              Button(style=ButtonStyle.gray, label="Обычная семья", emoji=client.get_emoji(emoji["norm"])),
@@ -341,10 +341,10 @@ async def send_registration_msg(channel):
            '➢ Имя не влияет на характеристики, при написании команды напишите имя маленькими буквами.\n' \
            '➢ Вводите имя с умом так как его можно будет изменить только через админа.' \
            '➢ После написания имени вы завершите создание профиля.```*'
-    emb = discord.Embed(title='⮮ __**Ваше имя:**__', color=44444)
-    emb.add_field(name='**Важно:**', value=text, inline=False)
+    embed = discord.Embed(title='⮮ __**Ваше имя:**__', color=44444)
+    embed.add_field(name='**Важно:**', value=text, inline=False)
 
-    await channel.send(embed=emb)
+    await channel.send(embed=embed)
 
 
 # ФУНКЦИЯ, отправляющаю сообщение в чат информации
@@ -361,18 +361,20 @@ async def send_information_msg(channel):
            'местом. На Землю стали отправлять неугодных людей, которые совершали какие либо преступление. Уже ' \
            'несколько поколений люди с планеты Земля живут в ужасном мире этой планеты. Вы родились на Земле, и ' \
            'вам предстоит на ней выжить.```*'
-    emb = discord.Embed(title='⮮ __**История:**__', color=44444)
-    emb.add_field(name='**――**', value=text, inline=False)
+    embed = discord.Embed(title='⮮ __**История:**__', color=44444)
+    embed.add_field(name='**――**', value=text, inline=False)
 
-    await channel.send(embed=emb)
+    await channel.send(embed=embed)
 
-    # ======= Правила
+    # ======= Инфо
     text = '*```yaml\n' \
-           '➢ -.```*'
-    emb = discord.Embed(title='⮮ __**Правила:**__', color=44444)
-    emb.add_field(name='**――**', value=text, inline=False)
+           '➢ Для того что бы узнать команды, напишите в чате "/", вам предоставится список команд с их описаниями.' \
+           '➢ Основная валюта игры - Gaudium.' \
+           '➢ Если у вас возникла ошибка обращайтесь к администрации.```*'
+    embed = discord.Embed(title='⮮ __**Правила:**__', color=44444)
+    embed.add_field(name='**――**', value=text, inline=False)
 
-    await channel.send(embed=emb)
+    await channel.send(embed=embed)
 
 
 # ФУНКЦИЯ, записывающая всех с сервера в базу данных
@@ -587,9 +589,9 @@ async def store_update(guild):
             random.shuffle(items)
             items = items[:random.randint(4, 6)]
             # Embed сообщения
-            emb = discord.Embed(title=f"⮮ __**{_type['NAME']}:**__", color=0xf1c40f)
+            embed = discord.Embed(title=f"⮮ __**{_type['NAME']}:**__", color=0xf1c40f)
             for item in items:
-                emb.add_field(
+                embed.add_field(
                     name=f"**{item.name}:**",
                     value=f"➢ **Цена:** {item.price} {client.get_emoji(emoji['money'])}"
                           f"```fix\nОписание: {item.description} Тип: {_type[item.type]}```", inline=False
@@ -598,7 +600,7 @@ async def store_update(guild):
             buttons = [Button(style=ButtonStyle.gray, label=f"Купить {item.name}") for item in items]
             # Отправка сообщения
             await store_channel.send(
-                embed=emb,
+                embed=embed,
                 components=[buttons]
             )
 
@@ -771,8 +773,9 @@ async def open_inventory(ctx, member=None):
     value_emoji = client.get_emoji(emoji["money"])
     player = member if member else ctx.author
     player_inventory = await get_inventory(player.id, guild)
-    player_name = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().name
-    embed = discord.Embed(title=f"**˹ Инвентарь {player_name}˼**", color=0xFFFFF0)
+    player_db = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
+    embed = discord.Embed(title=f"**˹ Инвентарь __{player_db.name.upper()}__˼**",
+                          description=f"Баланс: {player_db.balance} Gaudium", color=0xFFFFF0)
 
     if len(player_inventory.keys()) != 0:
         item_id = 1
@@ -783,15 +786,15 @@ async def open_inventory(ctx, member=None):
                    f"**Цена:** *{item_obj.price} {value_emoji}*\n" \
                    f"**Описание:** *{item_obj.description}*"
 
-            embed.add_field(name=f"**__{item.upper()}__**",
+            embed.add_field(name=f"**{item.upper()}:**",
                             value=text,
                             inline=True)
             item_id += 1
     else:
         embed.add_field(name="Полностью пуст", value="\u200b")
 
-    balance = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first().balance
-    embed.set_footer(text=f"Баланс: {balance} Gaudium")
+    embed.set_thumbnail(url=player.avatar_url)
+    embed.set_footer(text=f"Никнейм Discord: {player.name}")
 
     await ctx.send(embed=embed)
 
@@ -827,19 +830,19 @@ async def first_send_tic_tac_toe(channel, members1, members2):
     # Рандомный выбор того кто будет за "крестики"
     cross_and_zero = [members1, members2]
     random.shuffle(cross_and_zero)
-    # Сообщение-поле игры   |   (❌ or ⭕ | emb.set_footer(text=f""))
-    emb = discord.Embed(title=f"**<<= КРЕСТИКИ-НОЛИКИ =>>**", color=44444)
-    emb.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=f"*Ходит: {cross_and_zero[0]}*", inline=False)
+    # Сообщение-поле игры   |   (❌ or ⭕ | embed.set_footer(text=f""))
+    embed = discord.Embed(title=f"**<<= КРЕСТИКИ-НОЛИКИ =>>**", color=44444)
+    embed.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=f"*Ходит: {cross_and_zero[0]}*", inline=False)
     text = f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
            f"**. ━━━━━━━━━━━━━━ .**\n" \
            f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
            f"**. ━━━━━━━━━━━━━━ .**\n" \
            f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
            f"**. ━━━━━━━━━━━━━━ .**"
-    emb.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=False)
-    emb.set_footer(text=f"Крестики: {cross_and_zero[0]}; Нолики: {cross_and_zero[1]}")
+    embed.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=False)
+    embed.set_footer(text=f"Крестики: {cross_and_zero[0]}; Нолики: {cross_and_zero[1]}")
 
-    msg = await channel.send(embed=emb)
+    msg = await channel.send(embed=embed)
 
     for i in range(1, 10):
         await msg.add_reaction(numbers_emoji[i])
@@ -1263,26 +1266,26 @@ async def profile(ctx):
     author = ctx.author
     user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
     # ======= ПРОФИЛЬ
-    emb = discord.Embed(title=f"⮮ __**{user.name}:**__", color=44444)
+    embed = discord.Embed(title=f"⮮ __**{user.name}:**__", color=4017407)
 
-    emb.add_field(name='**Баланс:**', value=f"*```yaml\n{user.balance} Gaudium```*", inline=False)
-    text1 = f"*```yaml\n" \
-            f"Раса ➢ {user.nation}\n" \
-            f"Происхождение ➢ {user.origin}```*"
-    emb.add_field(name='**Сведения:**', value=text1, inline=False)
-    text2 = f"*```yaml\n" \
-            f"Здоровье ➢ {user.health}\n" \
-            f"Сила ➢ {user.strength}\n"\
-            f"Интелект ➢ {user.intelligence}\n" \
-            f"Маторика ➢ {user.dexterity}\n" \
-            f"Скорость ➢ {user.speed}```*"
-    emb.add_field(name='**Характеристики:**', value=text2, inline=False)
-    emb.add_field(name='**Свободных очков навыка:**', value=f"*```yaml\n{user.skill_points}```*", inline=False)
+    embed.add_field(name='**Баланс:**', value=f"*```md\n# {user.balance} Gaudium```*", inline=False)
+    text1 = f"*```md\n" \
+            f"# Раса ➢ {user.nation}\n" \
+            f"# Происхождение ➢ {user.origin}```*"
+    embed.add_field(name='**Сведения:**', value=text1, inline=False)
+    text2 = f"*```md\n" \
+            f"# Здоровье ➢ {user.health}\n" \
+            f"# Сила ➢ {user.strength}\n"\
+            f"# Интелект ➢ {user.intelligence}\n" \
+            f"# Маторика ➢ {user.dexterity}\n" \
+            f"# Скорость ➢ {user.speed}```*"
+    embed.add_field(name='**Характеристики:**', value=text2, inline=False)
+    embed.add_field(name='**Свободных очков навыка:**', value=f"*```md\n# {user.skill_points}```*", inline=False)
 
-    emb.set_thumbnail(url=author.avatar_url)
-    emb.set_footer(text=f"Никнейм Discord: {author.name}")
+    embed.set_thumbnail(url=author.avatar_url)
+    embed.set_footer(text=f"Никнейм Discord: {author.name}")
 
-    await ctx.send(embed=emb)
+    await ctx.send(embed=embed)
 
 
 """
@@ -1385,11 +1388,11 @@ async def throw_error(ctx, error):
     if isinstance(error, CommandNotFound):
         text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
 
-    emb = discord.Embed(title="⮮ __**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ:**__", color=0xed4337)
-    emb.add_field(name="**Причина:**",
+    embed = discord.Embed(title="⮮ __**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ:**__", color=0xed4337)
+    embed.add_field(name="**Причина:**",
                   value=f"```diff\n{text}\n```",
                   inline=False)
-    await ctx.send(embed=emb)
+    await ctx.send(embed=embed)
 
 
 """
