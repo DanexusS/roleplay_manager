@@ -55,3 +55,15 @@ class IncorrectMemberAmount(Exception):
 
 class IncorrectCityName(Exception):
     pass
+
+
+class ChannelNameError(Exception):
+    pass
+
+
+class IncorrectBetAmount(Exception):
+    pass
+
+
+class IncorrectGameAction(Exception):
+    pass
