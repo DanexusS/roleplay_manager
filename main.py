@@ -165,7 +165,7 @@ async def on_button_click(interaction):
         active_card_decks = json.load(open("game_data/active_card_decks.json", encoding="utf8"))
         active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
 
-        deck = DeckOfCards()
+        deck = Deck()
         await deck.shuffle()
         active_card_decks[str(message.id)] = deck.cards
 
@@ -190,6 +190,50 @@ async def on_button_click(interaction):
         await commit_changes(active_players, "game_data/active_players.json")
 
         return
+
+    if "Улучшить" in decision_type:
+        user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
+        points = {'здоровье': user.health, 'силу': user.strength, 'интелект': user.intelligence,
+             'маторику': user.dexterity, 'скорость': user.speed}
+        word = decision_type.split()[1].strip().lower()
+        if word == 'здоровье':
+            if user.health >= 50:
+                await interaction.send(":x: Данный навык прокачен на максимум!")
+                return
+            user.health += 1
+        elif word == 'силу':
+            if user.strength >= 50:
+                await interaction.send(":x: Данный навык прокачен на максимум!")
+                return
+            user.strength += 1
+        elif word == 'интелект':
+            if user.intelligence >= 50:
+                await interaction.send(":x: Данный навык прокачен на максимум!")
+                return
+            user.intelligence += 1
+        elif word == 'маторику':
+            if user.dexterity >= 50:
+                await interaction.send(":x: Данный навык прокачен на максимум!")
+                return
+            user.dexterity += 1
+        elif word == 'скорость':
+            if user.speed >= 50:
+                await interaction.send(":x: Данный навык прокачен на максимум!")
+                return
+            user.speed += 1
+
+        user.skill_points -= 1
+        embed.fields[3].value = f"*```md\n# {user.skill_points}```*"
+
+        if user.skill_points <= 0:
+            await message.edit(embed=embed, components=[])
+        else:
+            await message.edit(embed=embed)
+        await interaction.send(f":white_check_mark: Вы улучшили {word}!")
+
+        db_sess.commit()
+        return
+
 
     if "Посмотреть свои карты" in decision_type:
         active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
@@ -467,8 +511,8 @@ async def send_information_msg(channel):
 
     # ======= Инфо
     text = '*```yaml\n' \
-           '➢ Для того что бы узнать команды, напишите в чате "/", вам предоставится список команд с их описаниями.' \
-           '➢ Основная валюта игры - Gaudium.' \
+           '➢ Для того что бы узнать команды, напишите в чате "/", вам предоставится список команд с их описаниями.\n' \
+           '➢ Основная валюта игры: "Gaudium".\n' \
            '➢ Если у вас возникла ошибка обращайтесь к администрации.```*'
     embed = discord.Embed(title='⮮ __**Правила:**__', color=44444)
     embed.add_field(name='**――**', value=text, inline=False)
@@ -1857,7 +1901,7 @@ async def get_formatted_players(members, guild_id, value_emoji):
 
 
 async def start_new_round(round_num, message):
-    deck = DeckOfCards()
+    deck = Deck()
     cards_data = json.load(open("game_data/active_card_decks.json", encoding="utf8"))
     deck.cards = cards_data[str(message.id)]
     embed = message.embeds[0]
@@ -2049,7 +2093,7 @@ async def name(ctx, *args):
     _name = ' '.join(map(lambda x: x.capitalize(), args))
     user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
-    if get(guild.roles, name="Игрок") not in member.roles:
+    if get(guild.roles, name="Игрок") in member.roles:
         await member.send(':x: **Вы не можете поменять своё имя!** *Для этого обратитесь к администрации.*')
         return
 
@@ -2163,6 +2207,7 @@ async def profile(ctx):
 
     embed.add_field(name='**Баланс:**', value=f"*```md\n# {user.balance} Gaudium```*", inline=False)
     text1 = f"*```md\n" \
+            f"# Уровень ➢ {user.level}\n" \
             f"# Раса ➢ {user.nation}\n" \
             f"# Происхождение ➢ {user.origin}```*"
     embed.add_field(name='**Сведения:**', value=text1, inline=False)
@@ -2178,7 +2223,15 @@ async def profile(ctx):
     embed.set_thumbnail(url=author.avatar_url)
     embed.set_footer(text=f"Никнейм Discord: {author.name}")
 
-    await ctx.send(embed=embed)
+    if user.skill_points > 0:
+        buttons = [Button(style=ButtonStyle.blue, label=f"Улучшить {elem}") for elem in \
+                   ['здоровье', 'силу', 'интелект', 'маторику', 'скорость']]
+        await ctx.channel.send(
+            embed=embed,
+            components=[buttons]
+        )
+    else:
+        await ctx.send(embed=embed)
 
 
 """

@@ -39,7 +39,19 @@ class HandRanking(Enum):
     STRAIGHT_FLUSH = 9
 
 
-class DeckOfCards:
+class Card:
+    def __init__(self, suit, rank):
+        self.suit = suit
+        self.rank = rank
+
+    def __lt__(self, other):
+        return RANK_INFO[self.rank]["value"] < RANK_INFO[other.rank]["value"]
+
+    def __eq__(self, other):
+        return self.rank == other.rank
+
+
+class Deck:
     def __init__(self, size=36):
         self.cards = []
         for suit, values in cards.items():
@@ -65,19 +77,7 @@ class DeckOfCards:
         return taken_cards
 
 
-class Card:
-    def __init__(self, suit, rank):
-        self.suit = suit
-        self.rank = rank
-
-    def __lt__(self, other):
-        return RANK_INFO[self.rank]["value"] < RANK_INFO[other.rank]["value"]
-
-    def __eq__(self, other):
-        return self.rank == other.rank
-
-
-class Hand:
+class OnTheHand:
     def __init__(self, _cards):
         self.cards = sorted(_cards)
 
@@ -170,4 +170,4 @@ class Hand:
 
 
 def best_possible_hand(public, private):
-    return max(Hand(list(hand)) for hand in combinations(public + private, 5))
+    return max(OnTheHand(list(hand)) for hand in combinations(public + private, 5))
