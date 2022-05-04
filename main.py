@@ -13,8 +13,9 @@ from discord_components import DiscordComponents, Button, ButtonStyle
 
 from pafy import new
 
-from extras import *
+from custom_exceptions import *
 from consts import *
+from poker_stuff import *
 from data import db_session
 from data.users import User
 from data.items import Items
@@ -70,28 +71,33 @@ async def on_button_click(interaction):
 
     guild = interaction.guild
     member = interaction.user
-    print(decision_type)
+
     if "Взять контракт" in decision_type:
         difficulty = int(embed.fields[3].value.split('**')[1])
         print(difficulty)
-        fight = CreateBattle(difficulty)
+        fight = BattleCreation(difficulty)
         await fight.start_battle(guild, member)
+        return
 
     if "Атаковать" in decision_type:
         action = 1
+        return
 
     if "Укрыться" in decision_type:
         action = 2
+        return
 
     if "Лечиться" in decision_type:
         action = 3
+        return
 
     if "Сменить режим стрельбы" in decision_type:
         action = 4
+        return
 
     if "Атаковать" in decision_type:
         action = 5
-
+        return
 
     if "Начать раздачу" in decision_type:
         dealer_line = embed.fields[3].value.split("\n")[1]
@@ -113,13 +119,12 @@ async def on_button_click(interaction):
         for player in active_players_ids:
             active_players[str(message.id)][str(player)]["deck"] = await deck.take(2)
 
-        player_id = 4 if 3 < len(active_players_ids) else 4 % len(active_players_ids)
         old_field_value = "\n".join(embed.fields[3].value.split("\n")[:4])
-
+        min_bet = int(embed.fields[5].value.split("\n")[4].split()[0])
+        next_player_id, next_player = await get_next_player(min_bet, active_players[str(message.id)], guild)
         embed.set_field_at(3, name="\u200b",
                            value=f"{old_field_value}\n"
-                                 f"{player_id + 1}.\t{guild.get_member(int(active_players_ids[player_id]))}\n"
-                                 f"Ход раунда: 1 из {len(active_players_ids)}",
+                                 f"{next_player_id}.\t{next_player}\n",
                            inline=True)
 
         await interaction.send("Раздача завершена!")
@@ -308,13 +313,13 @@ async def on_reaction_add(reaction, user):
                 await reaction.remove(_user)
 
 
-# # СОБЫТИЕ,
-# @client.event
-# async def on_command_error(ctx, error):
-#     print(error)
-#     if isinstance(error, CommandNotFound):
-#         await ctx.message.delete()
-#         await throw_error(ctx, error)
+# СОБЫТИЕ,
+@client.event
+async def on_command_error(ctx, error):
+    print(error)
+    if isinstance(error, CommandNotFound):
+        await ctx.message.delete()
+        await throw_error(ctx, error)
 
 
 """
@@ -904,7 +909,7 @@ class TownMissions:
                     await channel.send(embed=embed, components=[Button(style=ButtonStyle.blue, label="Взять контракт")])
 
 
-class CreateBattle:
+class BattleCreation:
     def __init__(self, dif):
         self.difficulty = dif
         self.names = ['Лёха', 'Андрюха', 'Виталя', 'Жека', 'Гена', 'Влад', 'Дима', 'Юра', 'Олег', 'Миша', 'Ден', 'Макс',
@@ -992,11 +997,14 @@ class Battle:
             embed = discord.Embed(title=f"Ваши Показатели", color=discord.Colour.from_rgb(0, 255, 0))
             embed.add_field(name="**Ваше ОЗ**", value=fight_stats['hp'], inline=True)
             embed.add_field(name="**Ваша Защита**", value=fight_stats['armor'], inline=True)
-            await self.channel.send(embed=embed, components=[[Button(style=ButtonStyle.red, label="Атаковать"),
-                Button(style=ButtonStyle.blue, label="Укрыться"),
-                Button(style=ButtonStyle.green, label="Лечиться"),
-                Button(style=ButtonStyle.gray, label="Сменить режим стрельбы")]])
-            a = a
+            await self.channel.send(embed=embed,
+                                    components=[[
+                                        Button(style=ButtonStyle.red, label="Атаковать"),
+                                        Button(style=ButtonStyle.blue, label="Укрыться"),
+                                        Button(style=ButtonStyle.green, label="Лечиться"),
+                                        Button(style=ButtonStyle.gray, label="Сменить режим стрельбы")]]
+                                    )
+
             if action == 1:
                 for elem in self.warriors['enemy']:
                     print(f'{self.warriors["enemy"].index(elem) + 1}) {elem.get_info()}')
@@ -1153,8 +1161,8 @@ class Battle:
 
 
 class Person:
-    def __init__(self, stats={}):
-        if stats == {}:
+    def __init__(self, stats=None):
+        if stats is None:
             self.stats = {'fight_stats': {'hp': 0, 'armor': 0, 'damage': 0, 'aim': 0, 'mag': 0, 'max_mag': 0,
                                           'fire_mods': [], 'cur_mod': ''},
                           'stats': {'race_bonus': 0, 'streight': 0, 'intel': 0, 'motor': 0, 'speed': 0, 'name': ''}}
@@ -1210,18 +1218,19 @@ class Person:
     async def add_get_clear_bonus(self, *args):
         to_do = args[0]
         if len(args) > 1:
-            name = args[1]
+            _name = args[1]
             if to_do == 'add':
                 num = args[2]
-                if name in self.bonuses:
-                    self.bonuses[name] += num
+                if _name in self.bonuses:
+                    self.bonuses[_name] += num
                 else:
-                    self.bonuses[name] = num
+                    self.bonuses[_name] = num
             if to_do == 'clear':
-                if name in self.bonuses:
-                    self.bonuses[name] = 0
+                if _name in self.bonuses:
+                    self.bonuses[_name] = 0
         elif to_do == 'get':
             return self.bonuses
+
 
 """
 ====================================================================================================================
@@ -1392,9 +1401,6 @@ async def play(ctx):
     small_blind_id = dealer_id + 1 if dealer_id + 1 < len(members) else (dealer_id + 1) % len(members)
     blind_id = dealer_id + 2 if dealer_id + 2 < len(members) else (dealer_id + 2) % len(members)
 
-    db_sess.query(User).filter(User.id == f"{members_ids[small_blind_id]}-{guild.id}").first().balance -= bet // 2
-    db_sess.query(User).filter(User.id == f"{members_ids[blind_id]}-{guild.id}").first().balance -= bet
-
     embed = discord.Embed(title=f"Партия в покер в процессе", color=0x99d98c)
 
     members_text = await get_formatted_players(members, guild.id, value_emoji)
@@ -1414,16 +1420,16 @@ async def play(ctx):
     embed.add_field(name="\u200b",
                     value=f"**Общий куш:**\n"
                           f"{round(1.5 * bet)} {value_emoji}\n\n"
-                          f"**Минимальная ставка:**\n"
-                          f"{round(bet)} {value_emoji}",
+                          f"**Минимум для ставки:**\n"
+                          f"{bet} {value_emoji}",
                     inline=True)
 
     embed.add_field(name="\u200b", value="**Открытые карты:**\n"
                                          "Отсутствуют", inline=True)
     embed.add_field(name="\u200b", value=f"**Последнее действие:**\n"
                                          f"Собраны блайнды с игроков:\n"
-                                         f"  {members[small_blind_id]}\n"
-                                         f"  {members[blind_id]}", inline=True)
+                                         f"  {members[small_blind_id]} {round(bet * 0.5)} {value_emoji}\n"
+                                         f"  {members[blind_id]} {bet} {value_emoji}", inline=True)
 
     # await pins[0].unpin()
     message = await ctx.send(embed=embed,
@@ -1433,13 +1439,25 @@ async def play(ctx):
     active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
 
     games_history[str(channel.id)] += 1
-    active_players[str(message.id)] = {}
+    active_players[message.id] = {}
     for member_id in members_ids:
-        active_players[str(message.id)][member_id] = {"deck": [], "bet": 0, "action": ""}
+        active_players[message.id][member_id] = {"deck": [], "bet": 0, "action": ""}
+
+    db_sess.query(User).filter(User.id == f"{members_ids[small_blind_id]}-{guild.id}").first().balance -= bet // 2
+    db_sess.query(User).filter(User.id == f"{members_ids[blind_id]}-{guild.id}").first().balance -= bet
+
+    active_players[message.id][members_ids[small_blind_id]]["bet"] = bet // 2
+    active_players[message.id][members_ids[blind_id]]["bet"] = bet
 
     await commit_changes(games_history, "game_data/games_history.json")
     await commit_changes(active_players, "game_data/active_players.json")
     db_sess.commit()
+
+
+@client.command()
+async def _tsad(ctx):
+    value_emoji = client.get_emoji(emoji["money"])
+    await ctx.send(f"{ctx.author} выиграл и заработал 25 {value_emoji}!")
 
 
 @client.command(name="bet")
@@ -1449,7 +1467,10 @@ async def _bet(ctx, bet_amount):
 
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
-    if current_game_data["current_player_id"] != 1:
+
+    print(current_game_data["previous_action"])
+    if "блайнды" not in current_game_data["previous_action"] and \
+            "новый раунд" not in current_game_data["previous_action"]:
         raise IncorrectGameAction("- Команду /bet можно использовать только в первый ход раунда!")
 
     all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
@@ -1457,9 +1478,9 @@ async def _bet(ctx, bet_amount):
 
     guild = ctx.guild
 
-    new_min_bet = current_game_data["min_bet"]
-    player_bet = int(bet_amount) if int(bet_amount) >= new_min_bet else new_min_bet
-    new_min_bet = player_bet
+    player_bet = int(bet_amount) \
+        if int(bet_amount) >= current_game_data["min_bet"] \
+        else current_game_data["min_bet"]
 
     user = db_sess.query(User).filter(User.id == f"{ctx.author.id}-{guild.id}").first()
     action = f"{ctx.author} сделал bet на {player_bet} {client.get_emoji(emoji['money'])}"
@@ -1474,19 +1495,18 @@ async def _bet(ctx, bet_amount):
 
     user.balance -= player_bet
 
-    next_player_id, next_player = await get_next_player(current_game_data["min_bet"], active_players, guild)
+    next_player_id, next_player = await get_next_player(player_bet, active_players, guild)
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"],
         "new_pot": current_game_data["pot"] + player_bet,
-        "new_min_bet": new_min_bet,
+        "new_min_bet": player_bet,
         "last_action": action
     }
 
     db_sess.commit()
     await commit_changes(all_active_players, "game_data/active_players.json")
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command()
@@ -1502,7 +1522,6 @@ async def call(ctx):
 
     guild = ctx.guild
     player_bet = current_game_data["min_bet"]
-    new_min_bet = player_bet
 
     user = db_sess.query(User).filter(User.id == f"{ctx.author.id}-{guild.id}").first()
     action = f"{ctx.author} поддержал ставку {player_bet} {client.get_emoji(emoji['money'])}"
@@ -1517,18 +1536,17 @@ async def call(ctx):
 
     user.balance -= player_bet
 
-    next_player_id, next_player = await get_next_player(current_game_data["min_bet"], active_players, guild)
+    next_player_id, next_player = await get_next_player(player_bet, active_players, guild)
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"],
         "new_pot": current_game_data["pot"] + player_bet,
-        "new_min_bet": new_min_bet,
+        "new_min_bet": player_bet,
         "last_action": action
     }
 
     db_sess.commit()
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command()
@@ -1545,27 +1563,25 @@ async def fold(ctx):
     all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
     active_players = all_active_players[str(current_game_data["message"].id)]
     active_players_ids = list(all_active_players[str(current_game_data["message"].id)].keys())
-    current_player = active_players_ids[current_game_data["current_player_id"] - 1]
 
     if len(active_players_ids) - 1 == 1:
-        await poker_win(ctx)
+        await poker_win(ctx, current_game_data["pot"], last_player_id=active_players[active_players_ids[0]])
         return
 
     next_player_id, next_player = await get_next_player(current_game_data["min_bet"], active_players, guild)
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"] - 1,
         "new_pot": current_game_data["pot"],
         "new_min_bet": current_game_data["min_bet"],
         "last_action": action
     }
 
-    del all_active_players[str(current_game_data["message"].id)][current_player]
+    del all_active_players[str(current_game_data["message"].id)][str(ctx.author.id)]
 
     db_sess.commit()
     await commit_changes(all_active_players, "game_data/active_players.json")
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command()
@@ -1589,11 +1605,10 @@ async def all_in(ctx):
     all_active_players[str(current_game_data["message"].id)][str(ctx.author.id)]["bet"] = player_bet
     all_active_players[str(current_game_data["message"].id)][str(ctx.author.id)]["action"] = "all-in"
 
-    next_player_id, next_player = await get_next_player(current_game_data["min_bet"], active_players, guild)
+    next_player_id, next_player = await get_next_player(player_bet, active_players, guild)
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"],
         "new_pot": current_game_data["pot"] + player_bet,
         "new_min_bet": player_bet,
         "last_action": action
@@ -1601,7 +1616,7 @@ async def all_in(ctx):
 
     db_sess.commit()
     await commit_changes(all_active_players, "game_data/active_players.json")
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command()
@@ -1614,12 +1629,14 @@ async def check(ctx):
 
     all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
     active_players = all_active_players[str(current_game_data["message"].id)]
+    active_players_ids = list(all_active_players[str(current_game_data["message"].id)].keys())
 
-    previous_bet = active_players[str(current_game_data["current_player_id"] - 2)]["bet"]
-    players_bet = active_players[str(current_game_data["current_player_id"] - 1)]["bet"]
-    if previous_bet != players_bet:
+    current_player_id = active_players_ids.index(str(ctx.author.id))
+    previous_bet = active_players[str(active_players_ids[current_player_id - 1])]["bet"]
+    player_bet = active_players[str(ctx.author.id)]["bet"]
+    if previous_bet != player_bet:
         raise IncorrectGameAction(f"- Команду /check можно использовать, если предыдущая ставка равна Вашей!\n"
-                                  f"Ваша ставка - {players_bet} Gaudium для использования "
+                                  f"Ваша ставка - {player_bet} Gaudium для использования "
                                   f"этой команды нужно - {previous_bet} Gaudium")
 
     guild = ctx.guild
@@ -1631,14 +1648,13 @@ async def check(ctx):
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"],
         "new_pot": current_game_data["pot"],
         "new_min_bet": current_game_data["min_bet"],
         "last_action": action
     }
 
     await commit_changes(all_active_players, "game_data/active_players.json")
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command(name="raise")
@@ -1654,9 +1670,9 @@ async def _raise(ctx, raise_amount):
 
     guild = ctx.guild
 
-    new_min_bet = current_game_data["min_bet"]
-    player_raise = int(raise_amount) if int(raise_amount) >= new_min_bet * 2 else new_min_bet * 2
-    new_min_bet = player_raise
+    player_raise = int(raise_amount) \
+        if int(raise_amount) >= current_game_data["min_bet"] * 2 \
+        else current_game_data["min_bet"] * 2
 
     user = db_sess.query(User).filter(User.id == f"{ctx.author.id}-{guild.id}").first()
     action = f"{ctx.author} повысил ставку на {player_raise} {client.get_emoji(emoji['money'])}"
@@ -1671,20 +1687,18 @@ async def _raise(ctx, raise_amount):
 
     user.balance -= player_raise
 
-    changed_players_amount = await get_all_next_players(new_min_bet, active_players)
-    next_player_id, next_player = await get_next_player(new_min_bet, active_players, guild)
+    next_player_id, next_player = await get_next_player(player_raise, active_players, guild)
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"] + changed_players_amount,
         "new_pot": current_game_data["pot"] + player_raise,
-        "new_min_bet": new_min_bet,
+        "new_min_bet": player_raise,
         "last_action": action
     }
 
     db_sess.commit()
     await commit_changes(all_active_players, "game_data/active_players.json")
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command()
@@ -1698,14 +1712,14 @@ async def reraise(ctx, raise_amount):
     all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
     active_players = all_active_players[str(current_game_data["message"].id)]
 
-    if active_players[str(current_game_data["current_player_id"] - 2)]["action"] != "raise":
+    if "повысил" not in current_game_data["previous_action"]:
         raise IncorrectGameAction("- Команду /reraise можно использовать только после /raise")
 
     guild = ctx.guild
 
-    new_min_bet = current_game_data["min_bet"]
-    player_raise = int(raise_amount) if int(raise_amount) >= new_min_bet * 2 else new_min_bet * 2
-    new_min_bet = player_raise
+    player_raise = int(raise_amount) \
+        if int(raise_amount) >= current_game_data["min_bet"] * 2 \
+        else current_game_data["min_bet"] * 2
 
     user = db_sess.query(User).filter(User.id == f"{ctx.author.id}-{guild.id}").first()
     action = f"{ctx.author} повысил ставку на {player_raise} {client.get_emoji(emoji['money'])}"
@@ -1720,20 +1734,18 @@ async def reraise(ctx, raise_amount):
 
     user.balance -= player_raise
 
-    changed_players_amount = await get_all_next_players(new_min_bet, active_players)
-    next_player_id, next_player = await get_next_player(new_min_bet, active_players, guild)
+    next_player_id, next_player = await get_next_player(player_raise, active_players, guild)
     new_game_data = {
         "next_player": next_player,
         "next_player_id": next_player_id,
-        "max_player_id": current_game_data["max_player_id"] + changed_players_amount,
         "new_pot": current_game_data["pot"] + player_raise,
-        "new_min_bet": new_min_bet,
+        "new_min_bet": player_raise,
         "last_action": action
     }
 
     db_sess.commit()
     await commit_changes(all_active_players, "game_data/active_players.json")
-    await commit_game_changes(current_game_data["message"], new_game_data, guild)
+    await commit_game_changes(ctx, current_game_data["message"], new_game_data, guild)
 
 
 @client.command()
@@ -1741,8 +1753,42 @@ async def leave(ctx):
     await ctx.channel.set_permissions(ctx.author, send_messages=False, read_messages=False)
 
 
-async def poker_win(ctx):
-    pass
+async def poker_win(ctx, pot, message_id=None, opened_cards=None, last_player_id=None):
+    guild = ctx.guild
+    value_emoji = client.get_emoji(emoji["money"])
+
+    if last_player_id:
+        user = db_sess.query(User).filter(User.id == f"{last_player_id}-{guild.id}").first()
+        user.balance += pot
+        db_sess.commit()
+        await ctx.send(f"{guild.get_member(last_player_id)} выиграл и заработал {pot} {value_emoji}!")
+        return
+
+    active_players = json.load(open("game_data/active_players.json", encoding="utf8"))[str(message_id)]
+
+    players_ids = []
+    all_cards = {}
+    for player_id, player_info in active_players.items():
+        for card in player_info["deck"]:
+            value, suit = card.split(" - ")
+            if all_cards.get(player_id, "") == "":
+                all_cards[player_id] = [Card(suit, value)]
+            else:
+                all_cards[player_id].append(Card(suit, value))
+
+        players_ids.append(player_id)
+
+    winners = []
+    best_hand = None
+    for player_id in players_ids:
+        hand = best_possible_hand(all_cards[player_id], opened_cards)
+        if best_hand is None or hand > best_hand:
+            winners = [player_id]
+            best_hand = hand
+        elif hand == best_hand:
+            winners.append(player_id)
+
+    print(winners)
 
 
 async def get_all_next_players(current_bet, members_data):
@@ -1757,12 +1803,18 @@ async def get_all_next_players(current_bet, members_data):
 async def get_next_player(current_bet, members_data, guild):
     next_player = None
     next_player_id = -1
+    members_all_in = 0
     for member_id, member_data in members_data.items():
-        if member_data["bet"] < current_bet and member_data["action"] != "all-in":
-            next_player_id = list(members_data.keys()).index(next_player_id) + 1
-            next_player = guild.get_member(member_id)
+        if (current_bet == 0 and member_data["action"] != "check" or member_data["bet"] < current_bet) \
+                and member_data["action"] != "all-in":
+            next_player_id = list(members_data.keys()).index(member_id) + 1
+            next_player = guild.get_member(int(member_id))
             break
+        if member_data["action"] == "all-in":
+            members_all_in += 1
 
+    if len(list(members_data.keys())) == members_all_in:
+        return -1, None
     return next_player_id, next_player
 
 
@@ -1783,10 +1835,15 @@ async def get_formatted_players(members, guild_id, value_emoji):
 
 async def start_new_round(round_num, message):
     deck = DeckOfCards()
-    deck.cards = json.load(open("game_data/active_card_decks.json", encoding="utf8"))[str(message.id)]
+    cards_data = json.load(open("game_data/active_card_decks.json", encoding="utf8"))
+    deck.cards = cards_data[str(message.id)]
     embed = message.embeds[0]
 
     amount_to_take = 3 if round_num == 2 else 1
+    old_cards_value = ""
+    if round_num != 2:
+        old_cards_value = "\n".join(embed.fields[6].value.split("\n")[1:])
+        old_cards_value = f"{old_cards_value}\n"
     text_cards = []
     for card_info in await deck.take(amount_to_take):
         value, suit = card_info.split(" - ")
@@ -1795,20 +1852,69 @@ async def start_new_round(round_num, message):
 
     embed.set_field_at(6, name="\u200b",
                        value=f"**Открытые карты:**\n"
+                             f"{old_cards_value}"
                              f"{text_cards}")
+    embed.set_field_at(7, name="\u200b",
+                       value="**Последнее действие:**\n"
+                             "Начался новый раунд!")
 
     await message.edit(embed=embed)
+    cards_data[str(message.id)] = deck.cards
+    await commit_changes(cards_data, "game_data/active_card_decks.json")
 
 
-async def commit_game_changes(message, data, guild):
+async def commit_game_changes(ctx, message, data, guild):
     value_emoji = client.get_emoji(emoji["money"])
     embed = message.embeds[0]
 
     old_third_field_value = "\n".join(embed.fields[3].value.split("\n")[:4])
+
+    all_active_members = json.load(open("game_data/active_players.json", encoding="utf8"))
+    members = [guild.get_member(int(member_id))
+               for member_id in list(all_active_members[str(message.id)].keys())]
+    members_text = await get_formatted_players(members, guild.id, value_emoji)
+
+    embed.set_field_at(0, name="\u200b", value="\n\n".join(members_text[0]), inline=True)
+    embed.set_field_at(1, name="\u200b", value="\u200b", inline=True)
+    embed.set_field_at(2, name="\u200b", value="\n\n".join(members_text[1]), inline=True)
+
+    if not data["next_player"]:
+        opened_cards = embed.fields[6].value.split("\n")[1:]
+        round_num = len(opened_cards) if len(opened_cards) > 1 else len(opened_cards) + 1
+
+        if round_num > 4:
+            await poker_win(ctx, data['new_pot'], message_id=message.id, opened_cards=opened_cards)
+            return
+
+        active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
+
+        for player_id in active_players[str(message.id)].keys():
+            active_players[str(message.id)][player_id]["bet"] = 0
+
+            if active_players[str(message.id)][player_id]["action"] != "all-in":
+                active_players[str(message.id)][player_id]["action"] = ""
+
+        await commit_changes(active_players, "game_data/active_players.json")
+
+        next_player_id, next_player = await get_next_player(data["new_min_bet"],
+                                                            active_players[str(message.id)], guild)
+
+        embed.set_field_at(3, name="\u200b",
+                           value=f"{old_third_field_value}\n"
+                                 f"{next_player_id}.\t{next_player}\n",
+                           inline=True)
+        embed.set_field_at(5, name="\u200b",
+                           value=f"**Общий куш:**\n"
+                                 f"{data['new_pot']} {value_emoji}\n\n"
+                                 f"**Минимальная ставка:**\n"
+                                 f"0 {value_emoji}")
+
+        await start_new_round(round_num, message)
+        return
+
     embed.set_field_at(3, name="\u200b",
                        value=f"{old_third_field_value}\n"
-                             f"{data['next_player_id']}.\t{data['next_player']}\n"
-                             f"Ход раунда: {data['next_player_id']} из {data['max_player_id']}",
+                             f"{data['next_player_id']}.\t{data['next_player']}",
                        inline=True)
 
     embed.set_field_at(5, name="\u200b",
@@ -1817,27 +1923,12 @@ async def commit_game_changes(message, data, guild):
                              f"**Минимальная ставка:**\n"
                              f"{data['new_min_bet']} {value_emoji}")
 
-    if "вышел из игры" in data["last_action"]:
-        all_active_members = json.load(open("game_data/active_players.json", encoding="utf8"))
-        members = [guild.get_member(member_id)
-                   for member_id in list(all_active_members[str(message.id)].keys())]
-        members_text = await get_formatted_players(members, guild.id, value_emoji)
-
-        embed.set_field_at(0, name="\u200b", value="\n\n".join(members_text[0]), inline=True)
-        embed.set_field_at(1, name="\u200b", value="\u200b", inline=True)
-        embed.set_field_at(2, name="\u200b", value="\n\n".join(members_text[1]), inline=True)
-    elif data["last_action"] != "":
+    if data["last_action"] != "":
         embed.set_field_at(7, name="\u200b",
                            value=f"**Последнее действие:**\n"
                                  f"{data['last_action']}")
 
     await message.edit(embed=embed)
-
-    if not data["next_player"]:
-        opened_cards = embed.fields[6].value.split("\n")[1:]
-        round_num = len(opened_cards) if len(opened_cards) > 1 else len(opened_cards) + 1
-
-        await start_new_round(round_num, message)
 
 
 async def get_current_game_data(ctx):
@@ -1857,12 +1948,12 @@ async def get_current_game_data(ctx):
     embed = current_game_message.embeds[0]
 
     raw_bet_data = embed.fields[5].value.split("\n")
-    round_info = embed.fields[3].value.split("\n")[5].split()
 
     current_player_line = embed.fields[3].value.split("\n")[4]
     current_player_name, current_player_desc = " ".join(current_player_line.split()[1:]).split("#")
 
     current_game_data["message"] = current_game_message
+    current_game_data["previous_action"] = embed.fields[-1].value.split("\n")[1]
 
     current_game_data["pot"] = int(raw_bet_data[1].split()[0])
     current_game_data["min_bet"] = int(raw_bet_data[4].split()[0])
@@ -1870,9 +1961,6 @@ async def get_current_game_data(ctx):
     current_game_data["current_player"] = get(ctx.guild.members,
                                               name=current_player_name,
                                               discriminator=current_player_desc)
-
-    current_game_data["current_player_id"] = int(round_info[2])
-    current_game_data["max_player_id"] = int(round_info[4])
 
     return current_game_data
 
@@ -1882,6 +1970,10 @@ async def get_current_game_data(ctx):
 ===================================== РАЗДЕЛ С ПРОЧИМИ КОМАНДАМИ ДЛЯ ИГРОКОВ =======================================
 ====================================================================================================================
 """
+
+
+async def commit_changes(data, location):
+    json.dump(data, open(location, "w", encoding="utf8"), ensure_ascii=False, indent=4)
 
 
 # ФУНКЦИЯ, добавляющая xp, lvl
@@ -2088,9 +2180,9 @@ async def call_error(ctx, error):
     await throw_error(ctx, error)
 
 
-# @fold.error
-# async def fold_error(ctx, error):
-#     await throw_error(ctx, error)
+@fold.error
+async def fold_error(ctx, error):
+    await throw_error(ctx, error)
 
 
 @reraise.error
