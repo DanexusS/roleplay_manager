@@ -27,7 +27,7 @@ from data.items import Items
 """
 
 # Сервера (нужны для быстрой настройки слэш-комманд
-test_servers_id = [936293335063232672]
+test_servers_id = [936293335063232672, 971454361609855056]
 
 # Переменные (настройка бота)
 activity = discord.Activity(type=discord.ActivityType.listening, name="Древнерусский рейв")
