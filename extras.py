@@ -21,7 +21,7 @@ class DeckOfCards:
     async def take(self, amount):
         taken_cards = []
         for number in range(amount):
-            taken_card = choice(self.cards)
+            taken_card = action(self.cards)
 
             taken_cards.append(taken_card)
             self.cards.remove(taken_card)

@@ -70,6 +70,28 @@ async def on_button_click(interaction):
 
     guild = interaction.guild
     member = interaction.user
+    print(decision_type)
+    if "Взять контракт" in decision_type:
+        difficulty = int(embed.fields[3].value.split('**')[1])
+        print(difficulty)
+        fight = CreateBattle(difficulty)
+        await fight.start_battle(guild, member)
+
+    if "Атаковать" in decision_type:
+        action = 1
+
+    if "Укрыться" in decision_type:
+        action = 2
+
+    if "Лечиться" in decision_type:
+        action = 3
+
+    if "Сменить режим стрельбы" in decision_type:
+        action = 4
+
+    if "Атаковать" in decision_type:
+        action = 5
+
 
     if "Начать раздачу" in decision_type:
         dealer_line = embed.fields[3].value.split("\n")[1]
@@ -814,7 +836,392 @@ async def open_inventory(ctx, member=None):
     embed.set_footer(text=f"Никнейм Discord: {player.name}")
 
     await ctx.send(embed=embed)
+"""
+====================================================================================================================
+============================================= РАЗДЕЛ С СОЗДАНИЕМ МИССИЙ ============================================
+====================================================================================================================
+"""
 
+
+@slash.slash(name="mission_run",
+             description="Генерирует миссии на досках объявлений.",
+             options=[{"name": "amount", "description": "количество контрактов в городах",
+                       "type": 3, "required": False}],
+             guild_ids=test_servers_id)
+async def mission_run(ctx, amount=5):
+    a = TownMissions(int(amount))
+    await a.add_missions()
+
+
+class TownMissions:
+    def __init__(self, amount):
+        self.missions = []
+        self.town_letters = ['т', 'б', 'д']
+        self.amount = amount
+        self.aim = {'find_him': 'Найти и уничожить', 'stolen_item': 'Вернуть украденную вешь владельцу',
+                    'foreign territory': 'Уничтожить отряд противника',
+                    'old_tech': 'Разведать обозначенную учёными местность'}
+        self.scenario_to_dif = {'find_him': False, 'stolen_item': False, 'foreign territory': True, 'caravan': False,
+                                'old_tech': True}
+
+    async def add_missions(self):
+        with open('scenarios.json', encoding="utf8") as scenarios:
+            req = json.load(scenarios)
+            scenario = req['missions']
+            items = req['items']
+        for elem in self.town_letters:
+            for i in range(self.amount):
+                scen = random.choice(list(scenario.keys()))
+                diff = random.randint(1, 2)
+                if scen != 'stolen_item':
+                    if self.scenario_to_dif[scen]:
+                        diff = 3
+                    self.missions.append(
+                        {'time': random.randint(1, 60), 'difficulty': diff, 'descript': random.choice(scenario[scen]),
+                         'aim': self.aim[scen]})
+                else:
+                    line = random.choice(scenario[scen])
+                    line = line.replace('item', random.choice(items))
+                    self.missions.append(
+                        {'time': random.randint(1, 60), 'difficulty': diff, 'descript': line,
+                         'aim': self.aim[scen]})
+            print(self.missions)
+            await self.show_mission(elem)
+            self.missions = []
+
+    async def show_mission(self, letter):
+        for guild in client.guilds:
+            print(guild)
+            print(guild.text_channels)
+            channel = discord.utils.get(guild.text_channels, name=f"📋доска-объявлений-{letter}")
+            if channel is not None:
+                for elem in self.missions:
+                    embed = discord.Embed(title=f"Доступен контракт", color=discord.Colour.from_rgb(255, 160, 122))
+                    embed.add_field(name="\u200b", value=f"```{elem['descript']}```", inline=False)
+                    embed.add_field(name="**Цель:**", value=f"**{elem['aim']}**", inline=True)
+                    embed.add_field(name="\u200b", value="\u200b", inline=True)
+                    embed.add_field(name="**Сложность:**", value=f"**{elem['difficulty']}**", inline=True)
+                    await channel.send(embed=embed, components=[Button(style=ButtonStyle.blue, label="Взять контракт")])
+
+
+class CreateBattle:
+    def __init__(self, dif):
+        self.difficulty = dif
+        self.names = ['Лёха', 'Андрюха', 'Виталя', 'Жека', 'Гена', 'Влад', 'Дима', 'Юра', 'Олег', 'Миша', 'Ден', 'Макс',
+                      'Вова', 'Арсюха', 'Марк', 'Тарас', 'Колян', 'Даня', 'Паша', 'Лёня', 'Кирилл', 'Ян', 'Денис']
+        self.sir_names = ['Хмырь', 'Бульдозер', 'Шустрый', 'Фольга', 'Вобла', 'Татарин', 'Цыган', 'Колдун', 'Борода',
+                          'Фин', 'Шаман', 'Бестолочь', 'Южанин', 'Бочка', 'Сокол', 'Батон', 'Чёрт', 'Чугун', 'Воробей',
+                          'Химик', 'Крот', 'Бастард', 'Окурок', 'Ясень', 'Токарь', 'Кувалда', 'Шпала', 'Рябой',
+                          'Копатель']
+
+    async def create_buddies(self):
+        name = f'{random.choice(self.names)} {random.choice(self.sir_names)}'
+        mag_cap = random.choice([5, 15, 30, 60])
+        fire_mods = ['semi']
+        if mag_cap == 15:
+            fire_mods.append('pew - pew')
+        if mag_cap >= 30:
+            fire_mods.append('auto')
+        if self.difficulty == 1:
+            return {'fight_stats': {'hp': random.randint(20, 40), 'armor': random.randint(5, 15),
+                                    'damage': random.randint(7, 15), 'aim': random.randint(5, 14), 'mag': mag_cap,
+                                    'max_mag': mag_cap, 'fire_mods': fire_mods, 'cur_mod': random.choice(fire_mods)},
+                    'stats': {'race_bonus': 0, 'streight': random.randint(5, 10), 'intel': random.randint(5, 10),
+                              'motor': random.randint(5, 10), 'speed': random.randint(5, 10), 'name': name}}
+        elif self.difficulty == 2:
+            return {'fight_stats': {'hp': random.randint(30, 60), 'armor': random.randint(10, 35),
+                                    'damage': random.randint(14, 30), 'aim': random.randint(10, 18), 'mag': mag_cap,
+                                    'max_mag': mag_cap, 'fire_mods': fire_mods, 'cur_mod': random.choice(fire_mods)},
+                    'stats': {'race_bonus': 0, 'streight': random.randint(10, 17), 'intel': random.randint(10, 17),
+                              'motor': random.randint(10, 17), 'speed': random.randint(10, 17), 'name': name}}
+        elif self.difficulty == 3:
+            return {'fight_stats': {'hp': random.randint(40, 80), 'armor': random.randint(25, 60),
+                                    'damage': random.randint(20, 45), 'aim': random.randint(20, 29), 'mag': mag_cap,
+                                    'max_mag': mag_cap, 'fire_mods': fire_mods, 'cur_mod': random.choice(fire_mods)},
+                    'stats': {'race_bonus': 0, 'streight': random.randint(20, 30), 'intel': random.randint(20, 34),
+                              'motor': random.randint(30, 50), 'speed': random.randint(30, 40), 'name': name}}
+
+    async def start_battle(self, guild, member):
+        dil = {'fight_stats': {'hp': 4000, 'armor': 15, 'damage': 7, 'aim': 7, 'mag': 10, 'max_mag': 15,
+                               'fire_mods': ['semi', 'pew - pew', 'auto'], 'cur_mod': 'semi'},
+               'stats': {'race_bonus': 15, 'streight': 10, 'intel': 9, 'motor': 20, 'speed': 7, 'name': 'tester'}}
+
+        enemy = []
+        dif_to_count = {1: (1, 5), 2: (2, 4), 3: (1, 3)}
+        diap = dif_to_count[self.difficulty]
+        for i in range(random.randint(diap[0], diap[1])):
+            enemy.append(Person(self.create_buddies()))
+        print(member)
+        channel_name = f"комната {''.join(filter(str.isalnum, member.name))}"
+        channel = get(guild.channels, name=channel_name)
+        if channel:
+            await channel.delete()
+        channel = await guild.create_text_channel(channel_name, category=guild.categories[2])
+        await channel.set_permissions(guild.default_role, send_messages=False, read_messages=False)
+        await channel.set_permissions(member, send_messages=True, read_messages=True)
+        start = Battle(channel)
+        await start.add_persons([[Person(dil)], enemy])
+
+
+class Battle:
+    def __init__(self, channel):
+        self.warriors = {'player': [], 'enemy': []}
+        self.queue = 'Player'
+        self.channel = channel
+
+    async def add_persons(self, persons):
+        self.warriors['player'] = persons[0]
+        self.warriors['enemy'] = persons[1]
+        await self.turn()
+
+    @staticmethod
+    async def win_lose(win):
+        if win:
+            print('УраПобеда')
+        else:
+            print('____')
+            print('Поражение')
+
+    async def turn(self):
+        od = 5
+        more = True
+        player = self.warriors['player'][0]
+        await self.channel.send('**___Ваш ход___**')
+        while od != 0:
+            fight_stats = await player.get_fight_stats()
+            embed = discord.Embed(title=f"Ваши Показатели", color=discord.Colour.from_rgb(0, 255, 0))
+            embed.add_field(name="**Ваше ОЗ**", value=fight_stats['hp'], inline=True)
+            embed.add_field(name="**Ваша Защита**", value=fight_stats['armor'], inline=True)
+            await self.channel.send(embed=embed, components=[[Button(style=ButtonStyle.red, label="Атаковать"),
+                Button(style=ButtonStyle.blue, label="Укрыться"),
+                Button(style=ButtonStyle.green, label="Лечиться"),
+                Button(style=ButtonStyle.gray, label="Сменить режим стрельбы")]])
+            a = a
+            if action == 1:
+                for elem in self.warriors['enemy']:
+                    print(f'{self.warriors["enemy"].index(elem) + 1}) {elem.get_info()}')
+                action = int(input())
+                a = await self.attack(self.warriors['enemy'][action - 1], player)
+                if a > 0:
+                    print(f'Вы нанесли урон в размере {a} hp')
+                    if self.warriors['enemy'][action - 1].get_fight_stats()['hp'] <= 0:
+                        self.warriors['enemy'].remove(self.warriors['enemy'][action - 1])
+                        if len(self.warriors['enemy']) == 0:
+                            await self.win_lose(True)
+                            more = False
+                            break
+                else:
+                    print('Вы не смогли нанести противнику урон')
+                od -= 1
+            elif action == 2:
+                action = 1
+                while action != 2 and od != 0:
+                    a = await self.hide(player)
+                    if a >= 0:
+                        print(f'Вы спрятались, ваша защита стала {a} единиц')
+                    else:
+                        print('Вы не смогли спрятаться')
+                    print('1) Сменить позицию')
+                    print('2) Остаться')
+                    od -= 1
+                    action = input()
+            elif action == 3:
+                if self.warriors['player'][0].get_fight_stats()['mag'] == \
+                        self.warriors['player'][0].get_fight_stats()['max_mag']:
+                    print('Перезарядка не требуется')
+                else:
+                    base_motor = 15 + player.get_stats()['motor']
+                    action = 1
+                    while action != 2 and od != 0:
+                        a = random.randint(1, 100)
+                        if a <= base_motor:
+                            action = 2
+                            player.reload()
+                            print(player.get_fight_stats()['mag'])
+                            print('Вы успешно перезарядили оружие')
+                        else:
+                            print('Вы не смогли перезарядить оружие')
+                            print('1) Повторить попытку')
+                            print('2) Оставить')
+                            action = input()
+                        od -= 1
+
+            elif action == '4':
+                heal = 15 + random.randint(1, player.get_stats()['intel'] // 2)
+                print(f'Вы восполнили своё здоровье на {heal} hp')
+                player.heal(heal)
+                od -= 1
+            elif action == '5':
+                print(player.change_mode())
+        if more:
+            print('___ход противника___')
+        for elem in self.warriors['enemy']:
+            print(f'__ {elem.get_stats()["name"]} __')
+            od = 5
+            warrior = elem
+            heal_point, hide_point, armor_point, min_mag = warrior.get_static_fight_stats()
+            while od >= 1:
+                warrior_stats = warrior.get_fight_stats()
+                if (warrior_stats['hp'] < hide_point and warrior_stats['armor'] >= armor_point) or \
+                        warrior_stats['hp'] < heal_point:
+                    heal = 4 + random.randint(1, warrior.get_stats()['intel'] // 2)
+                    print(f'Противник восполнил своё здоровье на {heal} hp')
+                    warrior.heal(heal)
+                    od -= 1
+                elif warrior_stats['hp'] < hide_point and warrior_stats['armor'] <= armor_point:
+                    print('ща как сныкаюсь')
+                    a = await self.hide(warrior)
+                    if a >= 0:
+                        print(f'Противник спрятался, его защита возросла на {a} единиц')
+                    else:
+                        print('Противник не смог спрятаться')
+                    od -= 1
+                elif warrior_stats['mag'] <= min_mag:
+                    print('ПЕРЕЗАРЯЖАЮСЬ')
+                    if warrior_stats['mag'] != warrior_stats['max_mag']:
+                        base_motor = 15 + warrior.get_stats()['motor']
+                        a = random.randint(1, 100)
+                        if a <= base_motor:
+                            warrior.reload()
+                            print('Противник успешно перезарядил оружие')
+                        else:
+                            print('Противник не смог перезарядить оружие')
+                        od -= 1
+                else:
+                    print('Пизда тебе капчёный')
+                    dealed_damage = await self.attack(self.warriors['player'][0], warrior)
+                    if dealed_damage > 0:
+                        print(f'Вам нанесли урон в размере {dealed_damage} hp')
+                        if player.get_fight_stats()['hp'] <= 0:
+                            await self.win_lose(False)
+                            more = False
+                            break
+                    od -= 1
+
+            if not more:
+                break
+            print('____')
+        if more:
+            await self.turn()
+
+    @staticmethod
+    async def hide(warrior):
+        base_speed = 15 + warrior.get_stats()['speed']
+        arm_bonus = {'field': 0, 'tree': 15, 'rock': 20, 'baricade': 30}
+        a = random.randint(1, 100)
+        if a <= base_speed:
+            hide = random.choice(('field', 'tree', 'rock', 'baricade'))
+            warrior.add_get_clear_bonus('add', 'armor+', arm_bonus[hide])
+            return arm_bonus[hide] + warrior.get_fight_stats()['armor']
+        else:
+            return 0
+
+    @staticmethod
+    async def attack(target, warrior):
+        base_aim = 30
+        fire_mode = warrior.get_fight_stats()['cur_mod']
+        mag = warrior.get_fight_stats()['mag']
+        play_damage = warrior.get_fight_stats()['damage']
+        play_aim = warrior.get_fight_stats()['aim']
+        en_armor = target.get_fight_stats()['armor']
+        total_damage = 0
+        if 'aim+' in warrior.add_get_clear_bonus('get'):
+            base_aim += warrior.add_get_clear_bonus('get')['aim+']
+        if fire_mode == 'semi' and mag >= 1:
+            shoots = 1
+            warrior.shoot(1)
+        elif fire_mode == 'pew - pew' and mag >= 3:
+            warrior.shoot(3)
+            shoots = 3
+            base_aim -= 20
+        elif fire_mode == 'auto' and mag >= 10:
+            warrior.shoot(10)
+            shoots = 10
+            base_aim -= 25
+        else:
+            print('Недостаточно патронов')
+            shoots = 0
+        for i in range(shoots):
+            if random.randint(1, 100) <= base_aim + play_aim and play_damage > en_armor * 0.01:
+                target.get_hurt(play_damage - en_armor * 0.01)
+                warrior.add_get_clear_bonus('clear', 'aim+')
+                total_damage += play_damage - en_armor * 0.01
+            else:
+                warrior.add_get_clear_bonus('add', 'aim+', 10)
+
+        return total_damage
+
+
+class Person:
+    def __init__(self, stats={}):
+        if stats == {}:
+            self.stats = {'fight_stats': {'hp': 0, 'armor': 0, 'damage': 0, 'aim': 0, 'mag': 0, 'max_mag': 0,
+                                          'fire_mods': [], 'cur_mod': ''},
+                          'stats': {'race_bonus': 0, 'streight': 0, 'intel': 0, 'motor': 0, 'speed': 0, 'name': ''}}
+        else:
+            self.stats = stats
+        self.static_stats = stats
+        self.bonuses = {}
+
+    async def load_person(self, stats):
+        self.stats = stats
+
+    async def get_hurt(self, damage):
+        self.stats['fight_stats']['hp'] = round((self.stats['fight_stats']['hp'] - damage), 2)
+
+    async def get_info(self):
+        info = str(self.stats["fight_stats"]["hp"]), str(self.stats["fight_stats"]["armor"]), \
+               str(self.stats["fight_stats"]["damage"])
+        return f'{self.stats["stats"]["name"]} [{" ".join(info)}]'
+
+    async def get_fight_stats(self):
+        return self.stats['fight_stats']
+
+    async def get_static_fight_stats(self):
+        mode_to_minimum = {'auto': 10, 'pew - pew': 3, 'semi': 1}
+        hide_hp = self.static_stats['fight_stats']['hp'] - self.static_stats['fight_stats']['hp'] / 3
+        heal_hp = self.static_stats['fight_stats']['hp'] - self.static_stats['fight_stats']['hp'] / 4
+        mininmum_ammo_amount = mode_to_minimum[self.static_stats['fight_stats']['cur_mod']]
+        armor = self.static_stats['fight_stats']['armor'] + self.static_stats['fight_stats']['armor'] * 0.03
+        return hide_hp, heal_hp, armor, mininmum_ammo_amount
+
+    async def get_stats(self):
+        return self.stats['stats']
+
+    async def reload(self):
+        self.stats['fight_stats']['mag'] = self.stats['fight_stats']['max_mag']
+
+    async def heal(self, heal):
+        self.stats['fight_stats']['hp'] = round((self.stats['fight_stats']['hp'] + heal), 2)
+
+    async def shoot(self, amount):
+        self.stats['fight_stats']['mag'] -= amount
+
+    async def change_mode(self):
+        avalible_mods = self.stats['fight_stats']['fire_mods']
+        cur_mod = self.stats['fight_stats']['cur_mod']
+        if avalible_mods.index(cur_mod) + 1 >= len(avalible_mods):
+            cur_mod = avalible_mods[0]
+        else:
+            cur_mod = avalible_mods[avalible_mods.index(cur_mod) + 1]
+        self.stats['fight_stats']['cur_mod'] = cur_mod
+        return cur_mod
+
+    async def add_get_clear_bonus(self, *args):
+        to_do = args[0]
+        if len(args) > 1:
+            name = args[1]
+            if to_do == 'add':
+                num = args[2]
+                if name in self.bonuses:
+                    self.bonuses[name] += num
+                else:
+                    self.bonuses[name] = num
+            if to_do == 'clear':
+                if name in self.bonuses:
+                    self.bonuses[name] = 0
+        elif to_do == 'get':
+            return self.bonuses
 
 """
 ====================================================================================================================

@@ -1,10 +1,10 @@
-discord.py=1.7.3
-discord-py-slash-command=3.0.3
-dislash.py=1.4.9
-discord-components=2.1.2
-discord-interactions=0.3.0
-discord-py-interactions=4.1.0
-youtube-dl=2021.12.17
+discord.py==1.7.3
+discord-py-slash-command==3.0.3
+dislash.py==1.4.9
+discord-components==2.1.2
+discord-interactions==0.3.0
+discord-py-interactions==4.1.0
+youtube-dl==2021.12.17
 SQLAlchemy~=1.4.32
 aiohttp~=3.7.4.post0
 discord~=1.7.3
