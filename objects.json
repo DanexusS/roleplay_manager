@@ -3,7 +3,7 @@
         "🚪создание-персонажа":
         {
           "type": "non-game",
-          "messaging": false,
+          "messaging": true,
           "position": 1
         },
         "📜информация":

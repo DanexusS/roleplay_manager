@@ -27,31 +27,7 @@ playing_cards_emoji = {
 cards = json.load(open("cards.json", encoding="utf8"))
 
 
-class HandRanking(Enum):
-    HIGH_CARD = 1
-    PAIR = 2
-    TWO_PAIR = 3
-    THREE_OF_KIND = 4
-    STRAIGHT = 5
-    FLUSH = 6
-    FULL_HOUSE = 7
-    FOUR_OF_KIND = 8
-    STRAIGHT_FLUSH = 9
-
-
-class Card:
-    def __init__(self, suit, rank):
-        self.suit = suit
-        self.rank = rank
-
-    def __lt__(self, other):
-        return RANK_INFO[self.rank]["value"] < RANK_INFO[other.rank]["value"]
-
-    def __eq__(self, other):
-        return self.rank == other.rank
-
-
-class Deck:
+class DeckOfCards:
     def __init__(self, size=36):
         self.cards = []
         for suit, values in cards.items():
@@ -77,7 +53,34 @@ class Deck:
         return taken_cards
 
 
-class OnTheHand:
+class HandRanking(Enum):
+    HIGH_CARD = 1
+    PAIR = 2
+    TWO_PAIR = 3
+    THREE_OF_KIND = 4
+    STRAIGHT = 5
+    FLUSH = 6
+    FULL_HOUSE = 7
+    FOUR_OF_KIND = 8
+    STRAIGHT_FLUSH = 9
+
+    def __lt__(self, other):
+        return self.value < other.value
+
+
+class Card:
+    def __init__(self, suit, rank):
+        self.suit = suit
+        self.rank = rank
+
+    def __lt__(self, other):
+        return RANK_INFO[self.rank]["value"] < RANK_INFO[other.rank]["value"]
+
+    def __eq__(self, other):
+        return self.rank == other.rank
+
+
+class Hand:
     def __init__(self, _cards):
         self.cards = sorted(_cards)
         duplicates = self.get_duplicates()
@@ -169,4 +172,4 @@ class OnTheHand:
 
 
 def best_possible_hand(public, private):
-    return max(OnTheHand(list(hand)) for hand in combinations(public + private, 5))
+    return max(Hand(list(hand)) for hand in combinations(public + private, 5))

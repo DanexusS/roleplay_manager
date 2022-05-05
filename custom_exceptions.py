@@ -28,3 +28,7 @@ class IncorrectBetAmount(Exception):
 
 class IncorrectGameAction(Exception):
     pass
+
+
+class IncorrectBetValue(Exception):
+    pass

@@ -22,6 +22,7 @@ from data.users import User
 from data.items import Items
 from warfare import Person
 
+
 """
 ====================================================================================================================
 ====================================== РАЗДЕЛ С ПЕРЕМЕННЫМИ И НАСТРОЙКОЙ БОТА ======================================
@@ -29,7 +30,7 @@ from warfare import Person
 """
 
 # Сервера (нужны для быстрой настройки слэш-комманд
-test_servers_id = [936293335063232672, 971525622365048892]
+test_servers_id = [936293335063232672]
 
 # Переменные (настройка бота)
 activity = discord.Activity(type=discord.ActivityType.listening, name="Древнерусский рейв")
@@ -45,6 +46,7 @@ db_sess = db_session.create_session()
 
 # Словарь id - экземпляр класса Battle
 id_battle = {}
+
 
 """
 ====================================================================================================================
@@ -179,7 +181,7 @@ async def on_button_click(interaction):
         active_card_decks = json.load(open("game_data/active_card_decks.json", encoding="utf8"))
         active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
 
-        deck = Deck()
+        deck = DeckOfCards()
         await deck.shuffle()
         active_card_decks[str(message.id)] = deck.cards
 
@@ -424,20 +426,20 @@ async def on_reaction_add(reaction, user):
                 await reaction.remove(_user)
 
 
-# СОБЫТИЕ,
-@client.event
-async def on_command_error(ctx, error):
-    print(error)
-    if isinstance(error, CommandNotFound):
-        await ctx.message.delete()
-        await throw_error(ctx, error)
+# # СОБЫТИЕ,
+# @client.event
+# async def on_command_error(ctx, error):
+#     print(error)
+#     if isinstance(error, CommandNotFound):
+#         await ctx.message.delete()
+#         await throw_error(ctx, error)
 
 
 @client.event
 async def on_guild_join(guild):
     for member in guild.members:
         if not member.bot and member.guild_permissions.administrator:
-            await member.send("**Команды доступные только для администрации:**\n"
+            await member.send("**Команды, доступные только для администрации:**\n"
                               "/implement - инициализация нужных для бота категорий, каналов и ролей\n"
                               "/mission_run [кол-во миссий в одном городе] - "
                               "генерирует мисии в городах, по стандарту число миссий - это 5\n"
@@ -1432,7 +1434,7 @@ async def rock_paper_scissors(ctx):
     guild_ids=test_servers_id
 )
 async def poker_help(ctx):
-    await ctx.send("**ПРАВИЛА ИГРЫ В ТЕХАССКИЙ ХОЛДЕМ**"
+    await ctx.send("**ПРАВИЛА ИГРЫ В ТЕХАССКИЙ ХОЛДЕМ**\n"
                    "/play - начать игру в созданном лобби\n"
                    "/bet [размер ставки] - сделать ставку во время раунда\n"
                    "/check - пропустить ход, если ваша ставка равна минимальной\n"
@@ -1532,6 +1534,9 @@ async def play(ctx):
     small_blind_id = dealer_id + 1 if dealer_id + 1 < len(members) else (dealer_id + 1) % len(members)
     blind_id = dealer_id + 2 if dealer_id + 2 < len(members) else (dealer_id + 2) % len(members)
 
+    db_sess.query(User).filter(User.id == f"{members_ids[small_blind_id]}-{guild.id}").first().balance -= bet // 2
+    db_sess.query(User).filter(User.id == f"{members_ids[blind_id]}-{guild.id}").first().balance -= bet
+
     embed = discord.Embed(title=f"Партия в покер в процессе", color=0x99d98c)
 
     members_text = await get_formatted_players(members, guild.id, value_emoji)
@@ -1574,9 +1579,6 @@ async def play(ctx):
     for member_id in members_ids:
         active_players[message.id][member_id] = {"deck": [], "bet": 0, "action": ""}
 
-    db_sess.query(User).filter(User.id == f"{members_ids[small_blind_id]}-{guild.id}").first().balance -= bet // 2
-    db_sess.query(User).filter(User.id == f"{members_ids[blind_id]}-{guild.id}").first().balance -= bet
-
     active_players[message.id][members_ids[small_blind_id]]["bet"] = bet // 2
     active_players[message.id][members_ids[blind_id]]["bet"] = bet
 
@@ -1585,22 +1587,21 @@ async def play(ctx):
     db_sess.commit()
 
 
-@client.command()
-async def _tsad(ctx):
-    value_emoji = client.get_emoji(emoji["money"])
-    await ctx.send(f"{ctx.author} выиграл и заработал 25 {value_emoji}!")
-
-
 @client.command(name="bet")
 @commands.has_role("Игрок")
 async def _bet(ctx, bet_amount):
     current_game_data = await get_current_game_data(ctx)
+    previous_action = current_game_data["previous_action"]
+
+    try:
+        int(bet_amount)
+    except TypeError:
+        raise IncorrectBetValue("- Для повышения ставки нужно использовать ТОЛЬКО целые числа!")
 
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
-
-    if "блайнды" not in current_game_data["previous_action"] and \
-            "новый раунд" not in current_game_data["previous_action"]:
+    if "блайнды" not in previous_action and "новый раунд" not in previous_action and \
+            "пропустил ход" not in previous_action:
         raise IncorrectGameAction("- Команду /bet можно использовать только в первый ход раунда!")
 
     all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
@@ -1692,10 +1693,12 @@ async def fold(ctx):
 
     all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
     active_players = all_active_players[str(current_game_data["message"].id)]
-    active_players_ids = list(all_active_players[str(current_game_data["message"].id)].keys())
 
-    if len(active_players_ids) - 1 == 1:
-        await poker_win(ctx, current_game_data["pot"], last_player_id=active_players[active_players_ids[0]])
+    del all_active_players[str(current_game_data["message"].id)][str(ctx.author.id)]
+
+    active_players_ids = list(all_active_players[str(current_game_data["message"].id)].keys())
+    if len(active_players_ids) == 1:
+        await poker_win(ctx, current_game_data["pot"], last_player_id=active_players_ids[0])
         return
 
     next_player_id, next_player = await get_next_player(current_game_data["min_bet"], active_players, guild)
@@ -1706,8 +1709,6 @@ async def fold(ctx):
         "new_min_bet": current_game_data["min_bet"],
         "last_action": action
     }
-
-    del all_active_players[str(current_game_data["message"].id)][str(ctx.author.id)]
 
     db_sess.commit()
     await commit_changes(all_active_players, "game_data/active_players.json")
@@ -1792,6 +1793,11 @@ async def check(ctx):
 async def _raise(ctx, raise_amount):
     current_game_data = await get_current_game_data(ctx)
 
+    try:
+        int(raise_amount)
+    except TypeError:
+        raise IncorrectBetValue("- Для повышения ставки нужно использовать ТОЛЬКО целые числа!")
+
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
@@ -1835,6 +1841,11 @@ async def _raise(ctx, raise_amount):
 @commands.has_role("Игрок")
 async def reraise(ctx, raise_amount):
     current_game_data = await get_current_game_data(ctx)
+
+    try:
+        int(raise_amount)
+    except TypeError:
+        raise IncorrectBetValue("- Для повышения ставки нужно использовать ТОЛЬКО целые числа!")
 
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
@@ -1891,34 +1902,46 @@ async def poker_win(ctx, pot, message_id=None, opened_cards=None, last_player_id
         user = db_sess.query(User).filter(User.id == f"{last_player_id}-{guild.id}").first()
         user.balance += pot
         db_sess.commit()
-        await ctx.send(f"{guild.get_member(last_player_id)} выиграл и заработал {pot} {value_emoji}!")
+        await ctx.send(f"{guild.get_member(int(last_player_id))} выиграл и заработал {pot} {value_emoji}!")
         return
 
     active_players = json.load(open("game_data/active_players.json", encoding="utf8"))[str(message_id)]
 
     players_ids = []
-    all_cards = {}
+    all_players_cards = {}
     for player_id, player_info in active_players.items():
         for card in player_info["deck"]:
             value, suit = card.split(" - ")
-            if all_cards.get(player_id, "") == "":
-                all_cards[player_id] = [Card(suit, value)]
+            if all_players_cards.get(player_id, "") == "":
+                all_players_cards[player_id] = [Card(suit, value)]
             else:
-                all_cards[player_id].append(Card(suit, value))
+                all_players_cards[player_id].append(Card(suit, value))
 
         players_ids.append(player_id)
+
+    all_opened_cards = []
+    for card in opened_cards:
+        value, suit = card.split()
+        all_opened_cards.append(Card(suit.split(":")[1].capitalize(), value))
 
     winners = []
     best_hand = None
     for player_id in players_ids:
-        hand = best_possible_hand(all_cards[player_id], opened_cards)
+        hand = best_possible_hand(all_players_cards[player_id], all_opened_cards)
         if best_hand is None or hand > best_hand:
             winners = [player_id]
             best_hand = hand
         elif hand == best_hand:
             winners.append(player_id)
 
-    print(winners)
+    for winner in winners:
+        user = db_sess.query(User).filter(User.id == f"{winner}-{guild.id}").first()
+        user.balance += pot // len(winners)
+
+        await ctx.send(f"{guild.get_member(int(winner)).mention} выиграл и "
+                       f"заработал {pot // len(winners)} {value_emoji}!")
+
+    db_sess.commit()
 
 
 async def get_all_next_players(current_bet, members_data):
@@ -1964,7 +1987,7 @@ async def get_formatted_players(members, guild_id, value_emoji):
 
 
 async def start_new_round(round_num, message):
-    deck = Deck()
+    deck = DeckOfCards()
     cards_data = json.load(open("game_data/active_card_decks.json", encoding="utf8"))
     deck.cards = cards_data[str(message.id)]
     embed = message.embeds[0]
@@ -2304,39 +2327,39 @@ async def profile(ctx):
 """
 
 
-@all_in.error
-async def all_in_error(ctx, error):
-    await throw_error(ctx, error)
-
-
-@_bet.error
-async def bet_error(ctx, error):
-    await throw_error(ctx, error)
-
-
-@call.error
-async def call_error(ctx, error):
-    await throw_error(ctx, error)
-
-
-@fold.error
-async def fold_error(ctx, error):
-    await throw_error(ctx, error)
-
-
-@reraise.error
-async def reraise_error(ctx, error):
-    await throw_error(ctx, error)
-
-
-@_raise.error
-async def _raise_error(ctx, error):
-    await throw_error(ctx, error)
-
-
-@check.error
-async def check_error(ctx, error):
-    await throw_error(ctx, error)
+# @all_in.error
+# async def all_in_error(ctx, error):
+#     await throw_error(ctx, error)
+#
+#
+# @_bet.error
+# async def bet_error(ctx, error):
+#     await throw_error(ctx, error)
+#
+#
+# @call.error
+# async def call_error(ctx, error):
+#     await throw_error(ctx, error)
+#
+#
+# @fold.error
+# async def fold_error(ctx, error):
+#     await throw_error(ctx, error)
+#
+#
+# @reraise.error
+# async def reraise_error(ctx, error):
+#     await throw_error(ctx, error)
+#
+#
+# @_raise.error
+# async def _raise_error(ctx, error):
+#     await throw_error(ctx, error)
+#
+#
+# @check.error
+# async def check_error(ctx, error):
+#     await throw_error(ctx, error)
 
 
 @send_invite_tic_tac_toe.error

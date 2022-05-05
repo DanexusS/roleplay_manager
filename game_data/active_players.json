@@ -496,5 +496,159 @@
             "bet": 0,
             "action": "check"
         }
+    },
+    "971845913062543380": {
+        "355741582374338560": {
+            "deck": [
+                "Jack - Diamonds",
+                "7 - Clubs"
+            ],
+            "bet": 10,
+            "action": ""
+        },
+        "617689688014192679": {
+            "deck": [
+                "9 - Spades",
+                "10 - Diamonds"
+            ],
+            "bet": 5,
+            "action": ""
+        }
+    },
+    "971846418451005541": {
+        "355741582374338560": {
+            "deck": [
+                "King - Hearts",
+                "Jack - Hearts"
+            ],
+            "bet": 0,
+            "action": "check"
+        },
+        "617689688014192679": {
+            "deck": [
+                "Queen - Spades",
+                "7 - Diamonds"
+            ],
+            "bet": 0,
+            "action": ""
+        }
+    },
+    "971847539391336498": {
+        "355741582374338560": {
+            "deck": [
+                "Queen - Hearts",
+                "King - Clubs"
+            ],
+            "bet": 10,
+            "action": ""
+        },
+        "617689688014192679": {
+            "deck": [
+                "Jack - Hearts",
+                "Ace - Hearts"
+            ],
+            "bet": 5,
+            "action": ""
+        }
+    },
+    "971848177563099176": {
+        "355741582374338560": {
+            "deck": [
+                "Queen - Diamonds",
+                "10 - Clubs"
+            ],
+            "bet": 5,
+            "action": ""
+        },
+        "617689688014192679": {
+            "deck": [
+                "9 - Diamonds",
+                "7 - Clubs"
+            ],
+            "bet": 10,
+            "action": ""
+        }
+    },
+    "971848667575238717": {
+        "355741582374338560": {
+            "deck": [
+                "7 - Clubs",
+                "Queen - Hearts"
+            ],
+            "bet": 10,
+            "action": ""
+        },
+        "617689688014192679": {
+            "deck": [
+                "10 - Clubs",
+                "6 - Diamonds"
+            ],
+            "bet": 5,
+            "action": ""
+        }
+    },
+    "971849162213707797": {
+        "355741582374338560": {
+            "deck": [
+                "10 - Spades",
+                "Ace - Diamonds"
+            ],
+            "bet": 5,
+            "action": ""
+        },
+        "617689688014192679": {
+            "deck": [
+                "King - Diamonds",
+                "10 - Diamonds"
+            ],
+            "bet": 10,
+            "action": ""
+        }
+    },
+    "971849613281738802": {
+        "617689688014192679": {
+            "deck": [
+                "Ace - Hearts",
+                "King - Spades"
+            ],
+            "bet": 0,
+            "action": ""
+        }
+    },
+    "971849995206672404": {
+        "355741582374338560": {
+            "deck": [
+                "Jack - Clubs",
+                "9 - Spades"
+            ],
+            "bet": 5,
+            "action": ""
+        },
+        "617689688014192679": {
+            "deck": [
+                "10 - Hearts",
+                "Queen - Diamonds"
+            ],
+            "bet": 10,
+            "action": ""
+        }
+    },
+    "971850279341424720": {
+        "355741582374338560": {
+            "deck": [
+                "Jack - Diamonds",
+                "Queen - Diamonds"
+            ],
+            "bet": 0,
+            "action": "check"
+        },
+        "617689688014192679": {
+            "deck": [
+                "Ace - Diamonds",
+                "6 - Clubs"
+            ],
+            "bet": 0,
+            "action": "check"
+        }
     }
 }
