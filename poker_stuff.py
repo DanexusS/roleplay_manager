@@ -80,8 +80,7 @@ class Deck:
 class OnTheHand:
     def __init__(self, _cards):
         self.cards = sorted(_cards)
-
-        dups = self.get_dups()
+        duplicates = self.get_duplicates()
 
         if self.is_flush():
             if self.is_straight():
@@ -90,20 +89,20 @@ class OnTheHand:
                 self.rank = HandRanking.FLUSH
         elif self.is_straight():
             self.rank = HandRanking.STRAIGHT
-        elif dups:
-            if len(dups) == 2:
-                if len(dups[1]) == 3:
+        elif duplicates:
+            if len(duplicates) == 2:
+                if len(duplicates[1]) == 3:
                     self.rank = HandRanking.FULL_HOUSE
                 else:
                     self.rank = HandRanking.TWO_PAIR
             else:
-                if len(dups[0]) == 4:
+                if len(duplicates[0]) == 4:
                     self.rank = HandRanking.FOUR_OF_KIND
-                elif len(dups[0]) == 3:
+                elif len(duplicates[0]) == 3:
                     self.rank = HandRanking.THREE_OF_KIND
                 else:
                     self.rank = HandRanking.PAIR
-            self.rearrange_dups(dups)
+            self.rearrange_duplicates(duplicates)
         else:
             self.rank = HandRanking.HIGH_CARD
 
@@ -127,11 +126,11 @@ class OnTheHand:
                 return False
         return True
 
-    def rearrange_dups(self, dups):
-        flat_dups = [card for _cards in dups for card in _cards]
-        for dup in flat_dups:
+    def rearrange_duplicates(self, duplicates):
+        flat_duplicates = [card for _cards in duplicates for card in _cards]
+        for dup in flat_duplicates:
             self.cards.pop(self.cards.index(dup))
-        self.cards += flat_dups
+        self.cards += flat_duplicates
 
     def is_straight(self):
         ranks = [RANK_INFO[card.rank]["value"] for card in self.cards]
@@ -152,21 +151,21 @@ class OnTheHand:
                 return False
         return True
 
-    def get_dups(self):
-        dups = []
-        cur_dup = [self.cards[0]]
+    def get_duplicates(self):
+        duplicates = []
+        cur_duplicate = [self.cards[0]]
         for card in self.cards[1:]:
-            if cur_dup[0] != card:
-                if len(cur_dup) > 1:
-                    dups.append(cur_dup)
-                cur_dup = [card]
+            if cur_duplicate[0] != card:
+                if len(cur_duplicate) > 1:
+                    duplicates.append(cur_duplicate)
+                cur_duplicate = [card]
             else:
-                cur_dup.append(card)
-        if len(cur_dup) > 1:
-            dups.append(cur_dup)
-        if len(dups) == 2 and len(dups[0]) > len(dups[1]):
-            dups[0], dups[1] = dups[1], dups[0]
-        return dups
+                cur_duplicate.append(card)
+        if len(cur_duplicate) > 1:
+            duplicates.append(cur_duplicate)
+        if len(duplicates) == 2 and len(duplicates[0]) > len(duplicates[1]):
+            duplicates[0], duplicates[1] = duplicates[1], duplicates[0]
+        return duplicates
 
 
 def best_possible_hand(public, private):

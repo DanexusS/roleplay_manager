@@ -1,6 +1,5 @@
 import base64
 import asyncio
-import json
 
 import discord
 import datetime
@@ -30,7 +29,7 @@ from warfare import Person
 """
 
 # Сервера (нужны для быстрой настройки слэш-комманд
-test_servers_id = [936293335063232672, 971454361609855056]
+test_servers_id = [936293335063232672, 971525622365048892]
 
 # Переменные (настройка бота)
 activity = discord.Activity(type=discord.ActivityType.listening, name="Древнерусский рейв")
@@ -44,8 +43,8 @@ slash = SlashCommand(client, sync_commands=True)
 db_session.global_init(f"db/DataBase.db")
 db_sess = db_session.create_session()
 
-# Словарь id - экземпляр класса Batle
-id_batle = {}
+# Словарь id - экземпляр класса Battle
+id_battle = {}
 
 """
 ====================================================================================================================
@@ -79,94 +78,93 @@ async def on_button_click(interaction):
 
     if "Взять контракт" in decision_type:
         difficulty = int(embed.fields[3].value.split('**')[1])
-        print(difficulty)
         fight = BattleCreation(difficulty)
         await fight.start_battle(guild, member)
         await interaction.send('Вы взялись за выполнение контракта')
         return
 
     if "1" == decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.choice_enemy(1)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "2" == decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.choice_enemy(2)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "3" == decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.choice_enemy(3)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "4" == decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.choice_enemy(4)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "5" == decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.choice_enemy(5)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "Атаковать" in decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         await run.player_turn(1)
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "Укрыться" in decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.player_turn(2)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "Перезарядиться" in decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.player_turn(3)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "Лечиться" in decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.player_turn(4)
         await interaction.send(ans)
         if await run.get_od() <= 0:
             await run.enemy_turn()
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         return
 
     if "Сменить режим стрельбы" in decision_type:
-        run = id_batle[member.id]
+        run = id_battle[member.id]
         ans = await run.player_turn(5)
-        id_batle[member.id] = run
+        id_battle[member.id] = run
         await interaction.send(ans)
         return
 
@@ -209,9 +207,8 @@ async def on_button_click(interaction):
 
     if "Улучшить" in decision_type:
         user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
-        points = {'здоровье': user.health, 'силу': user.strength, 'интелект': user.intelligence,
-             'маторику': user.dexterity, 'скорость': user.speed}
         word = decision_type.split()[1].strip().lower()
+
         if word == 'здоровье':
             if user.health >= 50:
                 await interaction.send(":x: Данный навык прокачен на максимум!")
@@ -249,7 +246,6 @@ async def on_button_click(interaction):
 
         db_sess.commit()
         return
-
 
     if "Посмотреть свои карты" in decision_type:
         active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
@@ -437,6 +433,19 @@ async def on_command_error(ctx, error):
         await throw_error(ctx, error)
 
 
+@client.event
+async def on_guild_join(guild):
+    for member in guild.members:
+        if not member.bot and member.guild_permissions.administrator:
+            await member.send("**Команды доступные только для администрации:**\n"
+                              "/implement - инициализация нужных для бота категорий, каналов и ролей\n"
+                              "/mission_run [кол-во миссий в одном городе] - "
+                              "генерирует мисии в городах, по стандарту число миссий - это 5\n"
+                              "/reset - удаляет всё, что было инициализировано с помощью /implement\n"
+                              "/delete_users - удаляет все данные пользователей "
+                              "(будьте осторожны при использовании данной команды!\n")
+
+
 """
 ====================================================================================================================
 =========================== РАЗДЕЛ С КОМАНДАМИ НАСТРАИВАЮЩИМИ СЕРВЕР И ФУНКЦИЯМИ ДЛЯ НИХ ===========================
@@ -530,7 +539,7 @@ async def send_information_msg(channel):
            '➢ Для того что бы узнать команды, напишите в чате "/", вам предоставится список команд с их описаниями.\n' \
            '➢ Основная валюта игры: "Gaudium".\n' \
            '➢ Если у вас возникла ошибка обращайтесь к администрации.```*'
-    embed = discord.Embed(title='⮮ __**Правила:**__', color=44444)
+    embed = discord.Embed(title='⮮ __**Дополнительная информация:**__', color=44444)
     embed.add_field(name='**――**', value=text, inline=False)
 
     await channel.send(embed=embed)
@@ -538,7 +547,7 @@ async def send_information_msg(channel):
 
 # ФУНКЦИЯ, записывающая всех с сервера в базу данных
 async def write_db(guild):
-    chek_write_db = False
+    check_write_db = False
     for member in guild.members:
         id_user = f"{member.id}-{guild.id}"
         if not member.bot and not db_sess.query(User).filter(User.id == id_user).first():
@@ -557,10 +566,12 @@ async def write_db(guild):
             user.dexterity = 5
             user.speed = 5
             user.inventory = ''
+            user.equipped_inventory = ''
+
             db_sess.add(user)
-            chek_write_db = True
+            check_write_db = True
     db_sess.commit()
-    return chek_write_db
+    return check_write_db
 
 
 # ФУНКЦИЯ, удаляющая всех с сервера из базы данных
@@ -1071,20 +1082,19 @@ class BattleCreation:
         diap = dif_to_count[self.difficulty]
         for i in range(random.randint(diap[0], diap[1])):
             enemy.append(Person(await self.create_buddies()))
+
         channel_name = f"комната-{''.join(filter(str.isalnum, member.name))}".lower()
         channel = get(guild.channels, name=channel_name)
         if channel:
             await channel.delete()
-        for elem in guild.categories:
-            if elem.name == 'Битвы':
-                category = elem
-                break
+        category = get(guild.categories, name="Битвы")
         channel = await guild.create_text_channel(channel_name, category=category)
+
         await channel.set_permissions(guild.default_role, send_messages=False, read_messages=False)
         await channel.set_permissions(member, send_messages=True, read_messages=True)
         start = Battle(channel, self.difficulty, member.id)
         await start.add_persons([[Person(dil)], enemy])
-        id_batle[member.id] = start
+        id_battle[member.id] = start
 
 
 class Battle:
@@ -1112,7 +1122,7 @@ class Battle:
         await self.channel.send(f'За выполнение задания вы получили {total_reward} {client.get_emoji(emoji["money"])}')
         users = db_sess.query(User).all()
         for elem in users:
-            if elem.id == f'{self.member}-936293335063232672':
+            if elem.id == f'{self.member}-{self.message.guild.id}':
                 elem.balance += total_reward
                 break
         db_sess.commit()
@@ -1240,7 +1250,7 @@ class Battle:
         more = True
         player = self.warriors['player'][0]
         player_stats = await player.get_fight_stats()
-        await self.channel.send('**___ход противника___**')
+        await self.channel.send('**___Ход противника___**')
         for elem in self.warriors['enemy']:
             person = await elem.get_stats()
             await self.channel.send(f'**{person["name"]}**')
@@ -1248,7 +1258,7 @@ class Battle:
             warrior = elem
             warrior_basic_stats = await warrior.get_stats()
             heal_point, hide_point, armor_point, min_mag = await warrior.get_static_fight_stats()
-            print(heal_point, hide_point, armor_point)
+
             while od >= 1:
                 warrior_stats = await warrior.get_fight_stats()
                 if (warrior_stats['hp'] < hide_point and warrior_stats['armor'] >= armor_point) or \
@@ -1334,8 +1344,8 @@ class Battle:
             shoots = 10
             base_aim -= 25
         else:
-            shoots = 0
             return 'Недостаточно патронов'
+
         for i in range(shoots):
             if random.randint(1, 100) <= base_aim + play_aim and play_damage > en_armor * 0.01:
                 await target.get_hurt(play_damage - en_armor * 0.01)
@@ -1421,9 +1431,15 @@ async def rock_paper_scissors(ctx):
     description="Информация о правилах игры покер и о взаимодействии с ботом.",
     guild_ids=test_servers_id
 )
-@commands.has_role("Игрок")
 async def poker_help(ctx):
-    pass
+    await ctx.send("**ПРАВИЛА ИГРЫ В ТЕХАССКИЙ ХОЛДЕМ**"
+                   "/play - начать игру в созданном лобби\n"
+                   "/bet [размер ставки] - сделать ставку во время раунда\n"
+                   "/check - пропустить ход, если ваша ставка равна минимальной\n"
+                   "/raise [размер повышения] - повысить ставку\n"
+                   "/reraise [размер второго повышения] - повторно повысить ставку (работает только полсе /raise)\n"
+                   "/call - поддержать ставку")
+    await ctx.send("https://s1.studylib.ru/store/data/002146921_1-a1da1e4905ce29101b5da0116d42a333.png")
 
 
 @slash.slash(
@@ -1583,7 +1599,6 @@ async def _bet(ctx, bet_amount):
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
-    print(current_game_data["previous_action"])
     if "блайнды" not in current_game_data["previous_action"] and \
             "новый раунд" not in current_game_data["previous_action"]:
         raise IncorrectGameAction("- Команду /bet можно использовать только в первый ход раунда!")

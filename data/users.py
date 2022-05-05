@@ -25,3 +25,4 @@ class User(SqlAlchemyBase):
     speed = sqlalchemy.Column(sqlalchemy.Integer)
 
     inventory = sqlalchemy.Column(sqlalchemy.String)
+    equipped_inventory = sqlalchemy.Column(sqlalchemy.String)
