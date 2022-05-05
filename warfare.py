@@ -21,7 +21,7 @@ class Person:
     async def get_info(self):
         info = str(self.stats["fight_stats"]["hp"]), str(self.stats["fight_stats"]["armor"]), \
                str(self.stats["fight_stats"]["damage"])
-        return f'{self.stats["stats"]["name"]} [{" ".join(info)}]'
+        return self.stats["stats"]["name"], info
 
     async def get_fight_stats(self):
         return self.stats['fight_stats']
