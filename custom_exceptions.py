@@ -32,3 +32,11 @@ class IncorrectGameAction(Exception):
 
 class IncorrectBetValue(Exception):
     pass
+
+
+class InvalidTimeAmount(Exception):
+    pass
+
+
+class IncorrectTimeValue(Exception):
+    pass

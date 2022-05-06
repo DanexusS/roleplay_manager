@@ -334,6 +334,7 @@ async def on_button_click(interaction):
         return
 
     if member.id != sender.id:
+        await interaction.send(f"Вы не можете отправить этот обмен, так как его отправил {sender.name}")
         return
 
     if decision_type == "Отправить обмен":
@@ -388,42 +389,42 @@ async def on_reaction_add(reaction, user):
                 text += f"\n᲼᲼᲼{numbers_emoji[number]}  {user.mention}"
 
             await _message.edit(content=text)
-        elif "КРЕСТИКИ-НОЛИКИ" in _message.content:
-            txt = _message.content.split()
-            if txt[2][:-1] == user.name:
-                await _message.delete()
-                await first_send_tic_tac_toe(_channel, txt[2][:-1], txt[5])
-
-    if _emoji in [numbers_emoji[i] for i in range(1, 10)]:
-        embed = _message.embeds[0]
-        if embed.fields[0].value.split()[1][:-1] == user.name:
-            # num = 0
-            # for i in range(1, 10):
-            #     if numbers_emoji[i] == _emoji:
-            #         num = i
-            #         break
-            #
-            # p1 = embed.fields[0].value.split()[1][:-1]
-            # p2, p3 = embed.footer.text.split()[1][:-1], embed.footer.text.split()[3]
-            # player = p2 if p1 == p2 else p3
-            #
-            # cross_and_zero = []
-            # count = 1
-            # for elem in embed.fields[1].value:
-            #     if elem in ['❌', '⭕']:
-            #         if count == num:
-            #             if player == p2:
-            #                 elem = '❌'
-            #         cross_and_zero.append(elem)
-            #         count += 1
-            # print(cross_and_zero)
-            #
-            # embed.fields[0].value = f"*Ходит: {p2 if player != p2 else p3}*"
-            #
-            # await msg.edit(embed=embed)
-
-            for _user in await reaction.users().flatten():
-                await reaction.remove(_user)
+        # elif "КРЕСТИКИ-НОЛИКИ" in _message.content:
+        #     txt = _message.content.split()
+        #     if txt[2][:-1] == user.name:
+        #         await _message.delete()
+        #         await first_send_tic_tac_toe(_channel, txt[2][:-1], txt[5])
+    #
+    # if _emoji in [numbers_emoji[i] for i in range(1, 10)]:
+    #     embed = _message.embeds[0]
+    #     if embed.fields[0].value.split()[1][:-1] == user.name:
+    #         # num = 0
+    #         # for i in range(1, 10):
+    #         #     if numbers_emoji[i] == _emoji:
+    #         #         num = i
+    #         #         break
+    #         #
+    #         # p1 = embed.fields[0].value.split()[1][:-1]
+    #         # p2, p3 = embed.footer.text.split()[1][:-1], embed.footer.text.split()[3]
+    #         # player = p2 if p1 == p2 else p3
+    #         #
+    #         # cross_and_zero = []
+    #         # count = 1
+    #         # for elem in embed.fields[1].value:
+    #         #     if elem in ['❌', '⭕']:
+    #         #         if count == num:
+    #         #             if player == p2:
+    #         #                 elem = '❌'
+    #         #         cross_and_zero.append(elem)
+    #         #         count += 1
+    #         # print(cross_and_zero)
+    #         #
+    #         # embed.fields[0].value = f"*Ходит: {p2 if player != p2 else p3}*"
+    #         #
+    #         # await msg.edit(embed=embed)
+    #
+    #         for _user in await reaction.users().flatten():
+    #             await reaction.remove(_user)
 
 
 # # СОБЫТИЕ,
@@ -443,9 +444,7 @@ async def on_guild_join(guild):
                               "/implement - инициализация нужных для бота категорий, каналов и ролей\n"
                               "/mission_run [кол-во миссий в одном городе] - "
                               "генерирует мисии в городах, по стандарту число миссий - это 5\n"
-                              "/reset - удаляет всё, что было инициализировано с помощью /implement\n"
-                              "/delete_users - удаляет все данные пользователей "
-                              "(будьте осторожны при использовании данной команды!\n")
+                              "/reset - удаляет всё, что было инициализировано с помощью /implement\n")
 
 
 """
@@ -851,6 +850,7 @@ async def swap_items(guild, items, sender_id, other_id):
                                                     "формата - ID предмета:Количество", "type": 3, "required": False}],
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
 async def trade(ctx, member, your_items=None, their_items=None):
     player = ctx.author
@@ -900,6 +900,7 @@ async def trade(ctx, member, your_items=None, their_items=None):
              {"name": "amount", "description": "Количество денег для отправки", "type": 4, "required": True}],
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
 async def money_transfer(ctx, member, amount):
     guild = ctx.guild
@@ -932,6 +933,7 @@ async def money_transfer(ctx, member, amount):
     options=[{"name": "member", "description": "пользователь", "type": 6, "required": False}],
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
 async def open_inventory(ctx, member=None):
     guild = ctx.guild
@@ -978,11 +980,13 @@ async def open_inventory(ctx, member=None):
 """
 
 
-@slash.slash(name="mission_run",
-             description="Генерирует миссии на досках объявлений.",
-             options=[{"name": "amount", "description": "количество контрактов в городах",
-                       "type": 3, "required": False}],
-             guild_ids=test_servers_id)
+@slash.slash(
+    name="mission_run",
+    description="Генерирует миссии на досках объявлений.",
+    options=[{"name": "amount", "description": "количество контрактов в городах", "type": 3, "required": False}],
+    guild_ids=test_servers_id
+)
+@client.command()
 async def mission_run(ctx, amount=5):
     a = TownMissions(int(amount))
     await a.add_missions()
@@ -1365,47 +1369,47 @@ class Battle:
 ====================================================================================================================
 """
 
-"""
--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- КРЕСТИКИ-НОЛИКИ -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-"""
-
-
-@slash.slash(
-    name="tic_tac_toe",
-    description="Сыграть в \"Крестики-нолики\".",
-    options=[{"name": "member", "description": "Игрок, которого вы вызываете на бой.", "type": 6, "required": True}],
-    guild_ids=test_servers_id
-)
-@commands.has_role("Игрок")
-async def send_invite_tic_tac_toe(ctx, member):
-    if member.bot:
-        raise IncorrectUser("- С ботом играть нельзя!")
-    msg = await ctx.send(f"**КРЕСТИКИ-НОЛИКИ**\n*| {member.name}! Вас приглашает {ctx.author.name} "
-                         f"сыграть в крестики-нолики!* __*Для подтверждения нажмите на ✅.*__\n"
-                         f"||{member.mention}{ctx.author.mention}||")
-    await msg.add_reaction("✅")
-
-
-async def first_send_tic_tac_toe(channel, members1, members2):
-    # Рандомный выбор того кто будет за "крестики"
-    cross_and_zero = [members1, members2]
-    random.shuffle(cross_and_zero)
-    # Сообщение-поле игры   |   (❌ or ⭕ | embed.set_footer(text=f""))
-    embed = discord.Embed(title=f"**<<= КРЕСТИКИ-НОЛИКИ =>>**", color=44444)
-    embed.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=f"*Ходит: {cross_and_zero[0]}*", inline=False)
-    text = f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
-           f"**. ━━━━━━━━━━━━━━ .**\n" \
-           f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
-           f"**. ━━━━━━━━━━━━━━ .**\n" \
-           f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
-           f"**. ━━━━━━━━━━━━━━ .**"
-    embed.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=False)
-    embed.set_footer(text=f"Крестики: {cross_and_zero[0]}; Нолики: {cross_and_zero[1]}")
-
-    msg = await channel.send(embed=embed)
-
-    for i in range(1, 10):
-        await msg.add_reaction(numbers_emoji[i])
+# """
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- КРЕСТИКИ-НОЛИКИ -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# """
+#
+#
+# @slash.slash(
+#     name="tic_tac_toe",
+#     description="Сыграть в \"Крестики-нолики\".",
+#     options=[{"name": "member", "description": "Игрок, которого вы вызываете на бой.", "type": 6, "required": True}],
+#     guild_ids=test_servers_id
+# )
+# @commands.has_role("Игрок")
+# async def send_invite_tic_tac_toe(ctx, member):
+#     if member.bot:
+#         raise IncorrectUser("- С ботом играть нельзя!")
+#     msg = await ctx.send(f"**КРЕСТИКИ-НОЛИКИ**\n*| {member.name}! Вас приглашает {ctx.author.name} "
+#                          f"сыграть в крестики-нолики!* __*Для подтверждения нажмите на ✅.*__\n"
+#                          f"||{member.mention}{ctx.author.mention}||")
+#     await msg.add_reaction("✅")
+#
+#
+# async def first_send_tic_tac_toe(channel, members1, members2):
+#     # Рандомный выбор того кто будет за "крестики"
+#     cross_and_zero = [members1, members2]
+#     random.shuffle(cross_and_zero)
+#     # Сообщение-поле игры   |   (❌ or ⭕ | embed.set_footer(text=f""))
+#     embed = discord.Embed(title=f"**<<= КРЕСТИКИ-НОЛИКИ =>>**", color=44444)
+#     embed.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=f"*Ходит: {cross_and_zero[0]}*", inline=False)
+#     text = f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
+#            f"**. ━━━━━━━━━━━━━━ .**\n" \
+#            f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
+#            f"**. ━━━━━━━━━━━━━━ .**\n" \
+#            f"**▫〰{'🔲'}〰 | 〰{'🔲'}〰 | 〰{'🔲'}〰▫**\n" \
+#            f"**. ━━━━━━━━━━━━━━ .**"
+#     embed.add_field(name="**. ━━━━━━━━━━━━━━ .**", value=text, inline=False)
+#     embed.set_footer(text=f"Крестики: {cross_and_zero[0]}; Нолики: {cross_and_zero[1]}")
+#
+#     msg = await channel.send(embed=embed)
+#
+#     for i in range(1, 10):
+#         await msg.add_reaction(numbers_emoji[i])
 
 
 """
@@ -1418,6 +1422,7 @@ async def first_send_tic_tac_toe(channel, members1, members2):
     description="Сыграть в \"Камень-ножницы-бумага\".",
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
 async def rock_paper_scissors(ctx):
     pass
@@ -1433,6 +1438,7 @@ async def rock_paper_scissors(ctx):
     description="Информация о правилах игры покер и о взаимодействии с ботом.",
     guild_ids=test_servers_id
 )
+@client.command()
 async def poker_help(ctx):
     await ctx.send("**ПРАВИЛА ИГРЫ В ТЕХАССКИЙ ХОЛДЕМ**\n"
                    "/play - начать игру в созданном лобби\n"
@@ -1440,7 +1446,14 @@ async def poker_help(ctx):
                    "/check - пропустить ход, если ваша ставка равна минимальной\n"
                    "/raise [размер повышения] - повысить ставку\n"
                    "/reraise [размер второго повышения] - повторно повысить ставку (работает только полсе /raise)\n"
-                   "/call - поддержать ставку")
+                   "/call - поддержать ставку\n\n"
+                   "**ИНСТРУКЦИЯ ДЛЯ НАЧАЛА ИГРЫ:**\n"
+                   "С помощью команды */start_poker_session* Вы создаёте спеациальное лобби для игры в покер\n"
+                   "Для начала новой игры, нужно написать /start_new_round"
+                   "Для того, чтобы покинуть лобби нужно написать команду /leave\n"
+                   "\t**ВАЖНО!** Если Вы участвуйте в игре, */leave* не будет работать, "
+                   "лучше всего воспользоваться командой */fold*, а уже затем */leave*\n\n"
+                   "**Дополнительная информация по игре:**")
     await ctx.send("https://s1.studylib.ru/store/data/002146921_1-a1da1e4905ce29101b5da0116d42a333.png")
 
 
@@ -1450,17 +1463,36 @@ async def poker_help(ctx):
     options=[{"name": "members", "description": "Игроки, участвующие в игре. Совет! Просто упомените всех "
                                                 "игроков в покер (от 2 до 5 человек)", "type": 3, "required": True},
              {"name": "bet", "description": "Плата за вход в игру и размер "
-                                            "обязательной ставки (минимум - 10)", "type": 4, "required": True}],
+                                            "обязательной ставки (минимум - 10)", "type": 4, "required": True},
+             {"name": "time", "description": "Время (в часах), через которое удалится лобби покера "
+                                             "(от 1 часа до 12 часов)", "type": 4, "required": True}],
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
-async def start_poker_session(ctx, members, bet):
+async def start_poker_session(ctx, members, bet, time):
     guild = ctx.guild
     raw_member_data = members.split("><")
     members = [guild.get_member(await clean_member_id(member_id)) for member_id in raw_member_data]
-
     if ctx.author not in members:
         members.append(ctx.author)
+
+    user_balance = db_sess.query(User).filter(User.id == f"{ctx.author.id}-{guild.id}").first().balance
+    try:
+        if int(bet) < 10:
+            raise IncorrectBetAmount(f"- Нельзя ставить ставку, которая меньше минимальной (10 Gaudium)")
+        if int(bet) > user_balance:
+            raise IncorrectBetAmount(f"- Ставка {bet} Gaudium не может быть применена, "
+                                     f"так как у Вас нет достаточной суммы.\n"
+                                     f"Ваш баланс: {user_balance} Gaudium")
+    except TypeError:
+        raise IncorrectBetValue("- Размер ставки может быть ТОЛЬКО целым числом!")
+
+    try:
+        if not(1 < int(time) < 12):
+            raise InvalidTimeAmount("- Время, через которое удалится лобби может быть от 1 часа до 12 часов!")
+    except TypeError:
+        raise IncorrectTimeValue("- Время существования лобби покера может быть ТОЛЬКО целым числом!")
 
     if "таверна" not in ctx.channel.name:
         raise ChannelNameError(f"- Эта команда работает только в тавернах разных городов.\n"
@@ -1474,14 +1506,6 @@ async def start_poker_session(ctx, members, bet):
             raise IncorrectUser(f"- Выбран неверный пользователь.\n{member.name} - бот!")
         if get(guild.roles, name="Игрок") not in member.roles:
             raise IncorrectUser(f"- Выбран неверный пользователь.\nУ {member.name} нет роли \"Игрок\"!")
-
-    user_balance = db_sess.query(User).filter(User.id == f"{ctx.author.id}-{guild.id}").first().balance
-    if bet < 10:
-        raise IncorrectBetAmount(f"- Нельзя ставить ставку, которая меньше минимальной (10 Gaudium)")
-    if bet > user_balance:
-        raise IncorrectBetAmount(f"- Ставка {bet} Gaudium не может быть применена, "
-                                 f"так как у Вас нет достаточной суммы.\n"
-                                 f"Ваш баланс: {user_balance} Gaudium")
 
     channel_name = f"poker-lobby-{''.join(filter(str.isalnum, ctx.author.name))}".lower()
     channel = get(guild.channels, name=channel_name)
@@ -1511,12 +1535,23 @@ async def start_poker_session(ctx, members, bet):
 
     await commit_changes(games_history, "game_data/games_history.json")
 
+    if int(time) > 1:
+        await asyncio.sleep((time - 1) * 60 * 60)
+        await channel.send("**Данный канал удалится через 1 час**")
+
+    await asyncio.sleep(60 * 60)
+    await channel.delete()
+
 
 @client.command()
 @commands.has_role("Игрок")
 async def play(ctx):
     guild = ctx.guild
     channel = ctx.channel
+
+    if "poker-lobby" not in channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
+
     pins = await channel.pins()
     message_text = pins[-1].content
 
@@ -1591,15 +1626,20 @@ async def play(ctx):
 @commands.has_role("Игрок")
 async def _bet(ctx, bet_amount):
     current_game_data = await get_current_game_data(ctx)
+
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
+
     previous_action = current_game_data["previous_action"]
 
     try:
         int(bet_amount)
     except TypeError:
-        raise IncorrectBetValue("- Для повышения ставки нужно использовать ТОЛЬКО целые числа!")
+        raise IncorrectBetValue("- Для ставки нужно использовать ТОЛЬКО целые числа!")
 
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
+
     if "блайнды" not in previous_action and "новый раунд" not in previous_action and \
             "пропустил ход" not in previous_action:
         raise IncorrectGameAction("- Команду /bet можно использовать только в первый ход раунда!")
@@ -1645,6 +1685,9 @@ async def _bet(ctx, bet_amount):
 async def call(ctx):
     current_game_data = await get_current_game_data(ctx)
 
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
+
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
@@ -1685,6 +1728,9 @@ async def call(ctx):
 async def fold(ctx):
     current_game_data = await get_current_game_data(ctx)
 
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
+
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
@@ -1720,6 +1766,9 @@ async def fold(ctx):
 async def all_in(ctx):
     current_game_data = await get_current_game_data(ctx)
 
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
+
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
@@ -1754,6 +1803,9 @@ async def all_in(ctx):
 @commands.has_role("Игрок")
 async def check(ctx):
     current_game_data = await get_current_game_data(ctx)
+
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
 
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
@@ -1792,6 +1844,9 @@ async def check(ctx):
 @commands.has_role("Игрок")
 async def _raise(ctx, raise_amount):
     current_game_data = await get_current_game_data(ctx)
+
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
 
     try:
         int(raise_amount)
@@ -1842,6 +1897,9 @@ async def _raise(ctx, raise_amount):
 async def reraise(ctx, raise_amount):
     current_game_data = await get_current_game_data(ctx)
 
+    if "poker-lobby" not in ctx.channel.name:
+        raise ChannelNameError("- Эту команду можно использовать только в лобби покера!")
+
     try:
         int(raise_amount)
     except TypeError:
@@ -1850,11 +1908,11 @@ async def reraise(ctx, raise_amount):
     if current_game_data["current_player"].id != ctx.author.id:
         raise IncorrectUser("- Сейчас не Ваша очередь ходить!")
 
-    all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
-    active_players = all_active_players[str(current_game_data["message"].id)]
-
     if "повысил" not in current_game_data["previous_action"]:
         raise IncorrectGameAction("- Команду /reraise можно использовать только после /raise")
+
+    all_active_players = json.load(open("game_data/active_players.json", encoding="utf8"))
+    active_players = all_active_players[str(current_game_data["message"].id)]
 
     guild = ctx.guild
 
@@ -2093,7 +2151,6 @@ async def get_current_game_data(ctx):
             break
 
     if not current_game_message:
-        print("Нет активных игр")
         return
 
     current_game_data = {}
@@ -2155,6 +2212,7 @@ async def clean_member_id(member_id):
     description="Проверка связи!",
     guild_ids=test_servers_id
 )
+@client.command()
 async def ping(ctx):
     await ctx.send('Pong!')
 
@@ -2247,6 +2305,7 @@ async def name(ctx, *args):
     options=[{"name": "city", "description": "Роль города в который вы хотите пойти.", "type": 8, "required": True}],
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
 async def move(ctx, city):
     guild = ctx.guild
@@ -2283,6 +2342,7 @@ async def move(ctx, city):
     description="Показывает ваши характеристики, сколько у вас свободных очков навыка и прочую информацию.",
     guild_ids=test_servers_id
 )
+@client.command()
 @commands.has_role("Игрок")
 async def profile(ctx):
     guild = ctx.guild
@@ -2327,46 +2387,60 @@ async def profile(ctx):
 """
 
 
-# @all_in.error
-# async def all_in_error(ctx, error):
-#     await throw_error(ctx, error)
-#
-#
-# @_bet.error
-# async def bet_error(ctx, error):
-#     await throw_error(ctx, error)
-#
-#
-# @call.error
-# async def call_error(ctx, error):
-#     await throw_error(ctx, error)
-#
-#
-# @fold.error
-# async def fold_error(ctx, error):
-#     await throw_error(ctx, error)
-#
-#
-# @reraise.error
-# async def reraise_error(ctx, error):
-#     await throw_error(ctx, error)
-#
-#
-# @_raise.error
-# async def _raise_error(ctx, error):
-#     await throw_error(ctx, error)
-#
-#
-# @check.error
-# async def check_error(ctx, error):
-#     await throw_error(ctx, error)
-
-
-@send_invite_tic_tac_toe.error
-async def send_invite_tic_tac_toe_error(ctx, error):
+@play.error
+async def play_error(ctx, error):
     await throw_error(ctx, error)
 
 
+# Обработчик ошибок функции all_in
+@all_in.error
+async def all_in_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции bet
+@_bet.error
+async def bet_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции call
+@call.error
+async def call_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции fold
+@fold.error
+async def fold_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции reraise
+@reraise.error
+async def reraise_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции raise
+@_raise.error
+async def _raise_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции check
+@check.error
+async def check_error(ctx, error):
+    await throw_error(ctx, error)
+
+
+# # Обработчик ошибок функции send_invite_tic_tac_toe
+# @send_invite_tic_tac_toe.error
+# async def send_invite_tic_tac_toe_error(ctx, error):
+#     await throw_error(ctx, error)
+
+
+# Обработчик ошибок функции start_poker_session
 @start_poker_session.error
 async def start_poker_session_error(ctx, error):
     await throw_error(ctx, error)
@@ -2411,7 +2485,7 @@ async def inventory_error(ctx, error):
 
 
 async def throw_error(ctx, error):
-    text = error
+    text = repr(error)
 
     if isinstance(error, MissingRole):
         text = f"- У вас нет роли \"Игрок\" для использования этой команды."
@@ -2424,7 +2498,12 @@ async def throw_error(ctx, error):
     embed.add_field(name="**Причина:**",
                     value=f"```diff\n{text}\n```",
                     inline=False)
-    await ctx.send(embed=embed)
+    message = await ctx.send(embed=embed)
+
+    # Таймер для удаления сообщения ошибки
+    await asyncio.sleep(60)
+    await ctx.message.delete()
+    await message.delete()
 
 
 """
