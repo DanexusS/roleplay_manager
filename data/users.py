@@ -8,21 +8,21 @@ class User(SqlAlchemyBase):
 
     id = sqlalchemy.Column(sqlalchemy.String, primary_key=True)
 
-    name = sqlalchemy.Column(sqlalchemy.String)
-    nation = sqlalchemy.Column(sqlalchemy.String)
-    origin = sqlalchemy.Column(sqlalchemy.String)
+    name = sqlalchemy.Column(sqlalchemy.String, default="-1")
+    nation = sqlalchemy.Column(sqlalchemy.String, default="-1")
+    origin = sqlalchemy.Column(sqlalchemy.String, default="-1")
 
-    balance = sqlalchemy.Column(sqlalchemy.Integer)
+    balance = sqlalchemy.Column(sqlalchemy.Integer, default=0)
 
-    level = sqlalchemy.Column(sqlalchemy.Integer)
-    xp = sqlalchemy.Column(sqlalchemy.Integer)
-    skill_points = sqlalchemy.Column(sqlalchemy.Integer)
+    level = sqlalchemy.Column(sqlalchemy.Integer, default=1)
+    xp = sqlalchemy.Column(sqlalchemy.Integer, default=0)
+    skill_points = sqlalchemy.Column(sqlalchemy.Integer, default=0)
 
-    health = sqlalchemy.Column(sqlalchemy.Integer)
-    strength = sqlalchemy.Column(sqlalchemy.Integer)
-    intelligence = sqlalchemy.Column(sqlalchemy.Integer)
-    dexterity = sqlalchemy.Column(sqlalchemy.Integer)
-    speed = sqlalchemy.Column(sqlalchemy.Integer)
+    health = sqlalchemy.Column(sqlalchemy.Integer, default=5)
+    strength = sqlalchemy.Column(sqlalchemy.Integer, default=5)
+    intelligence = sqlalchemy.Column(sqlalchemy.Integer, default=5)
+    dexterity = sqlalchemy.Column(sqlalchemy.Integer, default=5)
+    speed = sqlalchemy.Column(sqlalchemy.Integer, default=5)
 
-    inventory = sqlalchemy.Column(sqlalchemy.String)
-    equipped_inventory = sqlalchemy.Column(sqlalchemy.String)
+    inventory = sqlalchemy.Column(sqlalchemy.String, default="")
+    equipped_inventory = sqlalchemy.Column(sqlalchemy.String, default="")

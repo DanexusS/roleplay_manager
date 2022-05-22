@@ -1,5 +1,7 @@
 import asyncio
 import random
+
+import wavelink
 from pafy import new as make_new_video
 from datetime import datetime
 
@@ -253,20 +255,6 @@ class ServerSetupCog(commands.Cog):
             if not member.bot and not db_sess.query(User).filter(User.id == user_id).first():
                 user = User()
                 user.id = user_id
-                user.name = '-1'
-                user.nation = '-1'
-                user.origin = '-1'
-                user.balance = 0
-                user.level = 1
-                user.xp = 0
-                user.skill_points = 0
-                user.health = 5
-                user.strength = 5
-                user.intelligence = 5
-                user.dexterity = 5
-                user.speed = 5
-                user.inventory = ''
-                user.equipped_inventory = ''
 
                 db_sess.add(user)
                 check_write_db = True
@@ -281,11 +269,6 @@ class ServerSetupCog(commands.Cog):
             if not member.bot and user:
                 db_sess.delete(user)
         db_sess.commit()
-
-    # ФУНКЦИЯ, создающая категории
-    @staticmethod
-    async def create_category(guild, title):
-        return await guild.create_category(title)
 
     # ФУНКЦИЯ, создающая чаты
     @staticmethod
@@ -318,7 +301,10 @@ class ServerSetupCog(commands.Cog):
         for _name, color in GAME_ROLES_COLORS.items():
             if not get(guild.roles, name=_name):
                 await guild.create_role(name=_name, color=color)
-                await interaction.send(f":white_check_mark: *Роль {_name} создана.*")
+                await interaction.send(
+                    f":white_check_mark: *Роль {_name} создана.*",
+                    ephemeral=True
+                )
                 check_implement = True
 
         roles_for_permss = {
@@ -330,20 +316,24 @@ class ServerSetupCog(commands.Cog):
         }
 
         # Создание чатов и категорий
-        for category, channels in OBJECTS.items():
+        for category_title, channels in OBJECTS.items():
             # Создание категории
-            category_object = get(guild.categories, name=category)
-            if not category_object:
-                category_object = await self.create_category(guild, category)
+            category = get(guild.categories, name=category_title)
+            if not category:
+                category = await guild.create_category(category_title)
                 check_implement = True
-                await interaction.send(f":white_check_mark: *Категория {category} создана.*")
+
+                await interaction.send(
+                    f":white_check_mark: *Категория {category_title} создана.*",
+                    ephemeral=True
+                )
 
             # Создание чатов
             for channel_name in channels.keys():
                 channel = await self.create_channel(
                     guild,
                     channels[channel_name].values(),
-                    category_object,
+                    category,
                     channel_name,
                     roles_for_permss
                 )
@@ -359,7 +349,7 @@ class ServerSetupCog(commands.Cog):
             # Добавление чатов в категорию (сделано для повторного /implement)
             for channel in channels.keys():
                 await get(guild.channels, name=channel).edit(
-                    category=category_object,
+                    category=category,
                     position=channels[channel]["position"]
                 )
 
@@ -374,7 +364,10 @@ class ServerSetupCog(commands.Cog):
 
         # Заполнение базы данных
         if await self.write_db(guild):
-            await interaction.send(":white_check_mark: *База данных заполнена.*")
+            await interaction.send(
+                ":white_check_mark: *База данных заполнена.*",
+                ephemeral=True
+            )
             check_implement = True
 
         # Создание магазина

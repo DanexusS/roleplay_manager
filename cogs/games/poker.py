@@ -233,7 +233,9 @@ class PokerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @nextcord.slash_command(guild_ids=TEST_GUILDS_ID, description="test")
+    @nextcord.slash_command(
+        guild_ids=TEST_GUILDS_ID
+    )
     async def poker(self, interaction: Interaction):
         pass
 
@@ -259,7 +261,9 @@ class PokerCog(commands.Cog):
                                "**Дополнительная информация по игре:**")
         await interaction.send("https://s1.studylib.ru/store/data/002146921_1-a1da1e4905ce29101b5da0116d42a333.png")
 
-    @poker.subcommand(description="t")
+    @poker.subcommand(
+        description="Начать игру в покер."
+    )
     async def start(
             self,
             interaction: Interaction,

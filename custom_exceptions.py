@@ -14,10 +14,6 @@ class IncorrectMemberAmount(Exception):
     pass
 
 
-class IncorrectCityName(Exception):
-    pass
-
-
 class ChannelNameError(Exception):
     pass
 

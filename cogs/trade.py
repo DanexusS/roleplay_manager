@@ -10,7 +10,7 @@ from cogs.user_experience import get_paged_inventory, get_page_embed_inventory
 class TradeMember:
     def __init__(self, player, items):
         self.player = player
-        self.items = items
+        self.items = None if len(items) == 1 and "" in items else items
 
 
 class ConfirmTradeView(nextcord.ui.View):
@@ -23,10 +23,12 @@ class ConfirmTradeView(nextcord.ui.View):
 
     @nextcord.ui.button(label="Принять обмен", style=ButtonStyle.green)
     async def confirm_trade(self, button: nextcord.ui.Button, interaction: Interaction):
-        if self.sender.items or "Ничего" not in self.sender.items:
-            swap_items(self.guild_id, self.sender.items, self.sender.player.id, self.recipient.player.id)
-        if self.recipient.items or "Ничего" not in self.recipient.items:
-            swap_items(self.guild_id, self.recipient.items, self.recipient.player.id, self.sender.player.id)
+        if self.sender.items:
+            if "Ничего" not in self.sender.items:
+                swap_items(self.guild_id, self.sender.items, self.sender.player.id, self.recipient.player.id)
+        if self.recipient.items:
+            if "Ничего" not in self.recipient.items:
+                swap_items(self.guild_id, self.recipient.items, self.recipient.player.id, self.sender.player.id)
 
         await self.sender.player.send(f":white_check_mark: {self.recipient.player.name} принял обмен!")
         await self.recipient.player.send("Обмен принят!")
@@ -197,14 +199,18 @@ class TradeCog(commands.Cog):
         self.bot = bot
 
     @nextcord.slash_command(
-        name="trade",
-        description="Отправить предложение обмена другому игроку.",
+        name="сформировать_предложение_обмена",
+        description="Команда, с помощью которой можно сформировать предложение обмена другому игроку.",
         guild_ids=TEST_GUILDS_ID
     )
     async def trade(
             self,
             interaction: Interaction,
-            member: nextcord.Member
+            member: nextcord.Member = SlashOption(
+                name="получатель",
+                description="Пользователь, которому будет отправлен обмен",
+                required=True
+            )
     ):
         user = interaction.user
         guild_id = interaction.guild_id
@@ -248,31 +254,36 @@ class TradeCog(commands.Cog):
 
     # КОМАНДА, перевод денег
     @nextcord.slash_command(
-        name="money_transfer",
-        description="Отправить деньги другому игроку.",
+        name="перевести_деньги",
+        description="Команда, с помощью которой можно перевести деньги другому игроку.",
         guild_ids=TEST_GUILDS_ID
     )
-    @commands.has_role("Игрок")
     async def money_transfer(
             self,
             interaction: Interaction,
             member: nextcord.Member = SlashOption(
+                name="получатель",
                 description="Пользователь, которому будут переведены деньги",
                 required=True
             ),
             amount: int = SlashOption(
+                name="сумма",
                 description="Количество денег для отправки",
                 required=True
             )
     ):
         guild = interaction.guild
+        player_role = get(guild.roles, name="Игрок")
+        player = interaction.user
+
+        if player_role not in player.roles:
+            raise IncorrectUser("- У Вас нет роли \"Игрок\"!")
         if member.bot:
             raise IncorrectUser("- Ботам передавать деньги нельзя!\n"
                                 "(Я бы в принципе не доверял им, кроме меня, конечно, я лучший бот, почти человек!)")
-        if get(guild.roles, name="Игрок") not in member.roles:
+        if player_role not in member.roles:
             raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
 
-        player = interaction.user
         player_user = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
         member_user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
@@ -290,6 +301,22 @@ class TradeCog(commands.Cog):
         await member.send(f"Только что {player.name} перевёл Вам {amount} {value_emoji}")
         db_sess.commit()
 
+    @trade.error
+    async def trade_error(
+            self,
+            interaction: Interaction,
+            error: Exception
+    ):
+        await throw_error(interaction, error)
+
+    @money_transfer.error
+    async def money_transfer_error(
+            self,
+            interaction: Interaction,
+            error: Exception
+    ):
+        await throw_error(interaction, error)
+
 
 # ФУНКЦИЯ, добавляющая предмет в инвентарь
 def add_item(guild_id, player_id, item):
@@ -300,7 +327,6 @@ def add_item(guild_id, player_id, item):
 
 # ФУНКЦИЯ, которая убирает предмет из инвентаря
 def remove_item(guild_id, player_id, item):
-    print(item)
     user = db_sess.query(User).filter(User.id == f"{player_id}-{guild_id}").first()
     inventory_list = user.inventory.split(";")
     inventory_list.remove(item)

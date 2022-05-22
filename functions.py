@@ -15,7 +15,10 @@ async def commit_changes(data, location):
     json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 
-async def throw_error(interaction, error):
+async def throw_error(
+        interaction: nextcord.Interaction,
+        error: Exception
+):
     text = error
 
     # if isinstance(error, MissingRole):
@@ -26,7 +29,10 @@ async def throw_error(interaction, error):
     #     text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
 
     embed = nextcord.Embed(title="⮮ __**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ:**__", color=0xed4337)
-    embed.add_field(name="**Причина:**",
-                    value=f"```diff\n{text}\n```",
-                    inline=False)
-    await interaction.send(embed=embed, delete_after=180)
+    embed.add_field(
+        name="**Причина:**",
+        value=f"```diff\n{text}\n```",
+        inline=False
+    )
+
+    await interaction.send(embed=embed, ephemeral=True)

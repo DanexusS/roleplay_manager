@@ -14,16 +14,15 @@ class InventoryCog(commands.Cog):
 
     # КОМАНДА, перемещение между городами
     @nextcord.slash_command(
-        name="move",
-        description="Отправиться в другой город!",
+        name="отправиться",
+        description="Команда, с помощью которой можно отправиться в другой город.",
         guild_ids=TEST_GUILDS_ID
     )
-    @commands.has_role("Игрок")
     async def move(
             self,
             interaction: Interaction,
             city_name: str = SlashOption(
-                name="city",
+                name="пункт_назначения",
                 description="Название города, в который Вы хотите отправится.",
                 choices={
                     "Тополис": "Тополис",
@@ -35,8 +34,11 @@ class InventoryCog(commands.Cog):
         guild = interaction.guild
         user = interaction.user
 
+        if get(guild.roles, name="Игрок") not in interaction.user.roles:
+            raise IncorrectUser("- У Вас нет роли \"Игрок\"!")
         if city_name in user.roles:
-            raise IncorrectCityName(f"- Вы и так находитесь в {city_name}!")
+            await interaction.send(f":x: Вы и так находитесь в {city_name}!")
+            return
 
         speed = db_sess.query(User).filter(User.id == f"{user.id}-{guild.id}").first().speed
 
@@ -44,49 +46,70 @@ class InventoryCog(commands.Cog):
         await user.remove_roles(get(guild.roles, name="Тополис"))
         await user.remove_roles(get(guild.roles, name="Браифаст"))
         await user.remove_roles(get(guild.roles, name="Джадифф"))
+
         time_second = 8 * (60 - speed)
+
         # Уведомление
         await interaction.send(f"**{user.mention} отправился в город {city_name}.**")
         await user.send(f"**Время, в дороге: {time_second // 60} минут {time_second % 60} секунд.**")
+
         # Таймер
         await asyncio.sleep(time_second)
         # Добавление роли нового города
         await user.add_roles(get(guild.roles, name=city_name))
+
         # Уведомление
         await get(guild.channels, name=f"таверна-{city_name[0].lower()}").send(f"{user.mention} *прибыл!*")
         await user.send(f":white_check_mark: **С прибытием в {city_name}.**")
 
     # КОМАНДА, для вливания скилл поинтов в характеристики
     @nextcord.slash_command(
-        name="profile",
-        description="Показывает ваши характеристики, сколько у вас свободных очков навыка и прочую информацию.",
+        name="открыть_профиль",
+        description="Команда, с помощь которой можно посмотреть игровой профиль.",
         guild_ids=TEST_GUILDS_ID
     )
-    @commands.has_role("Игрок")
-    async def profile(self, ctx):
-        guild = ctx.guild
-        author = ctx.author
-        user = db_sess.query(User).filter(User.id == f"{author.id}-{guild.id}").first()
-        # ======= ПРОФИЛЬ
-        embed = nextcord.Embed(title=f"⮮ __**{user.name}:**__", color=4017407)
+    async def profile(
+            self,
+            interaction: Interaction,
+            member: Optional[nextcord.Member] = SlashOption(
+                name="игрок",
+                description="Пользователь, профиль которого Вы хотите открыть"
+            )
+    ):
+        guild = interaction.guild
+        user = interaction.user if not member else member
 
-        embed.add_field(name='**Баланс:**', value=f"*```md\n# {user.balance} Gaudium```*", inline=False)
+        if get(guild.roles, name="Игрок") not in interaction.user.roles:
+            raise IncorrectUser("- У Вас нет роли \"Игрок\"!")
+        if user:
+            if user.bot:
+                raise IncorrectUser("- У ботов нет инвентаря!\n"
+                                    "Даже не пытайтесь открыть у них инвентарь - это бесполезно!")
+            if get(guild.roles, name="Игрок") not in member.roles:
+                raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
+
+        db_user = db_sess.query(User).filter(User.id == f"{user.id}-{guild.id}").first()
+
+        # ======= ПРОФИЛЬ
+        embed = nextcord.Embed(title=f"⮮ __**{db_user.name}:**__", color=4017407)
+
+        embed.add_field(name='**Баланс:**', value=f"*```md\n# {db_user.balance} Gaudium```*", inline=False)
         text1 = f"*```md\n" \
-                f"# Уровень ➢ {user.level}\n" \
-                f"# Раса ➢ {user.nation}\n" \
-                f"# Происхождение ➢ {user.origin}```*"
+                f"# Уровень ➢ {db_user.level}\n" \
+                f"# Раса ➢ {db_user.nation}\n" \
+                f"# Происхождение ➢ {db_user.origin}```*"
         embed.add_field(name='**Сведения:**', value=text1, inline=False)
         text2 = f"*```md\n" \
-                f"# Здоровье ➢ {user.health}\n" \
-                f"# Сила ➢ {user.strength}\n" \
-                f"# Интелект ➢ {user.intelligence}\n" \
-                f"# Маторика ➢ {user.dexterity}\n" \
-                f"# Скорость ➢ {user.speed}```*"
+                f"# Здоровье ➢ {db_user.health}\n" \
+                f"# Сила ➢ {db_user.strength}\n" \
+                f"# Интелект ➢ {db_user.intelligence}\n" \
+                f"# Маторика ➢ {db_user.dexterity}\n" \
+                f"# Скорость ➢ {db_user.speed}```*"
         embed.add_field(name='**Характеристики:**', value=text2, inline=False)
-        embed.add_field(name='**Свободных очков навыка:**', value=f"*```md\n# {user.skill_points}```*", inline=False)
+        embed.add_field(name='**Свободных очков навыка:**', value=f"*```md\n# {db_user.skill_points}```*", inline=False)
 
-        embed.set_thumbnail(url=author.avatar_url)
-        embed.set_footer(text=f"Никнейм Discord: {author.name}")
+        embed.set_thumbnail(url=user.avatar.url)
+        embed.set_footer(text=f"Никнейм Discord: {user.name}")
 
         # if user.skill_points > 0:
         #     buttons = [Button(style=ButtonStyle.blue, label=f"Улучшить {elem}") for elem in \
@@ -96,33 +119,36 @@ class InventoryCog(commands.Cog):
         #         components=[buttons]
         #     )
         # else:
-        await ctx.send(embed=embed)
+        await interaction.send(embed=embed, ephemeral=True)
 
     # КОМАНДА, открывающая инвентарь
     @nextcord.slash_command(
-        name="open_inventory",
-        description="Открыть инвентарь.",
+        name="открыть_инвентарь",
+        description="Команда, с помощью которой можно открыть и свой, и чужой инвентарь.",
         guild_ids=TEST_GUILDS_ID
     )
-    @commands.has_role("Игрок")
     async def open_inventory(
             self,
             interaction: Interaction,
             member: Optional[nextcord.Member] = SlashOption(
+                name="игрок",
                 description="Пользователь, инвентарь которого Вы хотите открыть",
                 required=False
             )
     ):
         guild = interaction.guild
-        if member:
-            if member.bot:
+        player = member if member else interaction.user
+
+        if get(guild.roles, name="Игрок") not in interaction.user.roles:
+            raise IncorrectUser("- У Вас нет роли \"Игрок\"!")
+        if player:
+            if player.bot:
                 raise IncorrectUser("- У ботов нет инвентаря!\n"
                                     "Даже не пытайтесь открыть у них инвентарь - это бесполезно!")
             if get(guild.roles, name="Игрок") not in member.roles:
                 raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
 
         value_emoji = self.bot.get_emoji(EMOJIS_ID["Валюта"])
-        player = member if member else interaction.user
         player_inventory = get_inventory(player.id, guild.id)
         player_db = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
         embed = nextcord.Embed(title=f"**˹ Инвентарь __{player_db.name.upper()}__˼**",
@@ -147,7 +173,31 @@ class InventoryCog(commands.Cog):
         embed.set_thumbnail(url=player.avatar.url)
         embed.set_footer(text=f"Никнейм в Discord: {player.name}")
 
-        await interaction.send(embed=embed)
+        await interaction.send(embed=embed, ephemeral=True)
+
+    @move.error
+    async def move_error(
+            self,
+            interaction: Interaction,
+            error: Exception
+    ):
+        await throw_error(interaction, error)
+
+    @profile.error
+    async def profile_error(
+            self,
+            interaction: Interaction,
+            error: Exception
+    ):
+        await throw_error(interaction, error)
+
+    @open_inventory.error
+    async def open_inventory_error(
+            self,
+            interaction: Interaction,
+            error: Exception
+    ):
+        await throw_error(interaction, error)
 
 
 def get_page_embed_inventory(inventory, current_page, title):
@@ -185,7 +235,7 @@ def get_paged_inventory(player_id, guild_id, max_amount_on_page):
 
 
 # ФУНКЦИЯ, которая получает инвентарь игрока формата - {предмет:количество}
-def get_inventory(player_id, guild_id):
+def get_inventory(player_id: int, guild_id: int):
     user_inventory = db_sess.query(User).filter(User.id == f"{player_id}-{guild_id}").first().inventory
     player_inventory = {}
     if len(user_inventory) != 0:
@@ -195,11 +245,11 @@ def get_inventory(player_id, guild_id):
 
 
 # ФУНКЦИЯ, добавляющая xp, lvl
-async def add_level(guild, member_id, xp):
-    user = db_sess.query(User).filter(User.id == f"{member_id}-{guild.id}").first()
+def add_xp(guild_id: int, member_id: int, xp: int):
+    user = db_sess.query(User).filter(User.id == f"{member_id}-{guild_id}").first()
     user.xp += xp
-    need_xp = 50 * (user.level ^ 2) - (50 * user.level)
-    if user.xp <= need_xp:
+    need_xp = 500 * user.level * (user.level - 0.5)
+    if user.xp >= need_xp:
         user.xp = user.xp % need_xp
         user.level += 1
         user.skill_points += 1
