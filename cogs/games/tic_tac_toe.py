@@ -1,7 +1,4 @@
-from nextcord.ext import commands
-from nextcord import Interaction, SlashOption
-
-from constants import *
+from general_imports import *
 
 
 class TicTacToeButton(nextcord.ui.Button):

@@ -1,18 +1,19 @@
 import json
+from typing import Optional
 import nextcord
 
 
 # ФУНКЦИЯ, делающая чистый id пользователя
-async def clean_member_id(member_id):
+async def clean_member_id(member_id: str) -> Optional[int]:
     try:
-        return int(str(member_id).replace("<", "").replace(">", "").replace("!", "").replace("@", ""))
+        return int(member_id.replace("<", "").replace(">", "").replace("!", "").replace("@", ""))
     except ValueError:
-        return ""
+        return None
 
 
-async def commit_changes(data, location):
-    json_file = open(f"json_data\\{location}", "w", encoding="utf8")
-    json.dump(data, json_file, ensure_ascii=False, indent=4)
+async def commit_changes(data, location: str):
+    with open(f"json_data\\{location}", "w", encoding="utf8") as json_file:
+        json.dump(data, json_file, ensure_ascii=False, indent=4)
 
 
 async def throw_error(
@@ -28,11 +29,14 @@ async def throw_error(
     # if isinstance(error, CommandNotFound):
     #     text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
 
-    embed = nextcord.Embed(title="⮮ __**БОТ СТОЛКНУЛСЯ С ОШИБКОЙ:**__", color=0xed4337)
+    embed = nextcord.Embed(title=nextcord.Embed.Empty, color=0xed4337)
     embed.add_field(
         name="**Причина:**",
         value=f"```diff\n{text}\n```",
         inline=False
     )
 
-    await interaction.send(embed=embed, ephemeral=True)
+    await interaction.send(
+        embed=embed,
+        ephemeral=True
+    )

@@ -2,11 +2,7 @@ class IncorrectUser(Exception):
     pass
 
 
-class IncompleteTrade(Exception):
-    pass
-
-
-class IncorrectTradeValues(Exception):
+class MissingItems(Exception):
     pass
 
 

@@ -291,12 +291,12 @@
 #             f'За выполнение задания вы получили {total_reward} '
 #             f'{self.bot.get_emoji(EMOJIS_ID["Валюта"])}'
 #         )
-#         users = db_sess.query(User).all()
+#         users = DB_SESSION.query(User).all()
 #         for elem in users:
 #             if elem.id == f'{self.member}-{self.message.guild.id}':
 #                 elem.balance += total_reward
 #                 break
-#         db_sess.commit()
+#         DB_SESSION.commit()
 #
 #     async def win_lose(self, win):
 #         await self.channel.send('**__Итоги битвы__**')

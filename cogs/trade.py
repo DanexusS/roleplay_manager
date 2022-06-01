@@ -1,119 +1,102 @@
-from nextcord.ext import commands
-from nextcord import Interaction, SlashOption
-from nextcord.utils import get
-from nextcord import ButtonStyle
+import nextcord
+from nextcord import ButtonStyle, Locale, Permissions
 
-from constants import *
-from cogs.user_experience import get_paged_inventory, get_page_embed_inventory
-
-
-class TradeMember:
-    def __init__(self, player, items):
-        self.player = player
-        self.items = None if len(items) == 1 and "" in items else items
+from general_imports import *
+from cogs.user_experience import get_paged_inventory, get_paged_embed_inventory, get_inventory
 
 
 class ConfirmTradeView(nextcord.ui.View):
-    def __init__(self, guild_id, sender, recipient):
+    def __init__(
+            self,
+            guild_id: int,
+            sender: nextcord.Member,
+            recipient: nextcord.Member,
+            sender_items: Optional[str],
+            recipient_items: Optional[str]
+    ):
         super().__init__(timeout=None)
 
         self.guild_id = guild_id
         self.sender = sender
         self.recipient = recipient
+        self.sender_items = sender_items.split("\n") if sender_items else None
+        self.recipient_items = recipient_items.split("\n") if recipient_items else None
 
     @nextcord.ui.button(label="Принять обмен", style=ButtonStyle.green)
-    async def confirm_trade(self, button: nextcord.ui.Button, interaction: Interaction):
-        if self.sender.items:
-            if "Ничего" not in self.sender.items:
-                swap_items(self.guild_id, self.sender.items, self.sender.player.id, self.recipient.player.id)
-        if self.recipient.items:
-            if "Ничего" not in self.recipient.items:
-                swap_items(self.guild_id, self.recipient.items, self.recipient.player.id, self.sender.player.id)
+    async def confirm_trade(
+            self,
+            button: nextcord.ui.Button,
+            interaction: Interaction
+    ):
+        if self.sender_items:
+            await swap_items(
+                self.guild_id,
+                self.sender_items,
+                self.sender.id,
+                self.recipient.id
+            )
+        if self.recipient_items:
+            await swap_items(
+                self.guild_id,
+                self.recipient_items,
+                self.recipient.id,
+                self.sender.id
+            )
 
-        await self.sender.player.send(f":white_check_mark: {self.recipient.player.name} принял обмен!")
-        await self.recipient.player.send("Обмен принят!")
+        await self.sender.send(f":white_check_mark: {self.recipient.name} принял обмен!")
+        await self.recipient.send(":white_check_mark: Обмен принят!")
 
         await interaction.message.delete()
 
     @nextcord.ui.button(label="Отклонить обмен", style=ButtonStyle.red)
-    async def decline_trade(self, button: nextcord.ui.Button, interaction: Interaction):
-        await self.sender.player.send(f":x: {self.recipient.player.name} не принял обмен!")
-        await self.recipient.player.send(":white_check_mark: Обмен успешно отменён!")
+    async def decline_trade(
+            self,
+            button: nextcord.ui.Button,
+            interaction: Interaction
+    ):
+        await self.sender.send(f":x: {self.recipient.name} не принял обмен!")
+        await self.recipient.send(":white_check_mark: Обмен успешно отменён!")
 
         await interaction.message.delete()
 
 
-class SendTradeView(nextcord.ui.View):
-    def __init__(self, sender_view, recipient_view):
-        super().__init__(timeout=None)
-
-        self.sender_view = sender_view
-        self.recipient_view = recipient_view
-
-    @nextcord.ui.button(label="Отправить обмен", style=ButtonStyle.green)
-    async def send_trade(self, button: nextcord.ui.Button, interaction: Interaction):
-        sender_items = "\n".join(["\n".join(item_row) for item_row in self.sender_view.trade_items])
-        recipient_items = "\n".join(["\n".join(item_row) for item_row in self.recipient_view.trade_items])
-
-        if not sender_items and not recipient_items or \
-                sender_items == "Ничего" and recipient_items == "Ничего":
-            return
-
-        embed = nextcord.Embed(
-            title="**˹ Вам отправлен обмен ˼**",
-            description="\u200b",
-            color=0xFFFFF0
+class ItemSelectionView(Paginator):
+    def __init__(
+            self,
+            pages: list,
+            paged_inventory: list,
+            player: nextcord.Member
+    ):
+        super().__init__(
+            pages,
+            extra_item=ItemsDropdown(self, paged_inventory) if paged_inventory else None
         )
 
-        embed.add_field(
-            name=f"{self.sender_view.player.name}\nПредметы :",
-            value=sender_items if sender_items or sender_items == "Ничего" else "Пусто"
-        )
-        embed.add_field(name="\u200b", value="\u200b")
-        embed.add_field(
-            name=f"{self.recipient_view.player.name}\nПредметы:",
-            value=recipient_items if recipient_items or recipient_items == "Ничего" else "Пусто"
-        )
-
-        await self.recipient_view.player.send(
-            embed=embed,
-            view=ConfirmTradeView(
-                self.sender_view.guild_id,
-                TradeMember(self.sender_view.player, sender_items.split("\n")),
-                TradeMember(self.recipient_view.player, recipient_items.split("\n"))
-            )
-        )
-        await interaction.send("Обмен отправлен!")
-
-        channel = await self.sender_view.player.create_dm()
-        for message in await channel.history(limit=1000).flatten():
-            try:
-                child = message.components[0].children[0]
-                if isinstance(child, nextcord.SelectMenu) or isinstance(child, nextcord.Button):
-                    await message.delete()
-            except IndexError:
-                continue
+        self.player = player
+        self.trade_items = [[]]
+        self.message = None
 
 
 class ItemsDropdown(nextcord.ui.Select):
-    def __init__(self, parent, guild_id, player, text):
-        self.stripped_player_inventory = get_paged_inventory(player.id, guild_id, 25)
+    def __init__(
+            self,
+            parent: ItemSelectionView,
+            paged_inventory: list
+    ):
+        self.paged_inventory = paged_inventory
         self.parent = parent
 
-        if self.stripped_player_inventory:
-            self.parent.trade_items = [[] * len(self.stripped_player_inventory)]
+        options = []
+        self.parent.trade_items = [[] * len(self.paged_inventory)]
 
-            options = []
-
-            for item, amount in self.stripped_player_inventory[self.parent.current_page].items():
-                options.append(nextcord.SelectOption(
-                    label=item, description=f"Количество: {amount}"
-                ))
-        else:
-            options = [nextcord.SelectOption(label="Ничего")]
+        for item, amount in self.paged_inventory[0].items():
+            item_name = DB_SESSION.query(Items).filter(Items.id == item).first().name
+            options.append(nextcord.SelectOption(
+                label=item_name, description=f"Количество: {amount}"
+            ))
 
         super().__init__(
-            placeholder=text,
+            placeholder="Выберите нужные предметы",
             min_values=0,
             max_values=len(options),
             options=options,
@@ -124,151 +107,193 @@ class ItemsDropdown(nextcord.ui.Select):
 
     async def update(self):
         options = []
-        try:
-            for item, amount in self.stripped_player_inventory[self.parent.current_page].items():
-                options.append(nextcord.SelectOption(
-                    label=item, description=f"Количество: {amount}"
-                ))
-        except IndexError:
-            return
+        for item, amount in self.paged_inventory[self.parent.current_page].items():
+            options.append(nextcord.SelectOption(
+                label=item, description=f"Количество: {amount}"
+            ))
 
         self.max_values = len(options)
         self.options = options
 
 
-class PageButton(nextcord.ui.Button):
-    def __init__(self, parent, emoji, direction):
-        super().__init__(emoji=emoji)
+class SendTradeView(nextcord.ui.View):
+    def __init__(
+            self,
+            sender_view: Optional[ItemSelectionView],
+            recipient_view: Optional[ItemSelectionView]
+    ):
+        super().__init__(timeout=None)
 
-        self.parent = parent
-        self.direction = direction
+        self.sender_view = sender_view
+        self.recipient_view = recipient_view
+        self.sent = False
 
-    async def callback(self, interaction: Interaction):
-        if 0 <= self.parent.current_page + self.direction <= len(self.parent.trade_items):
-            self.parent.current_page += self.direction
-            for child in self.parent.children:
-                if not isinstance(child, PageButton):
-                    await child.update()
+    @nextcord.ui.button(label="Отправить обмен", style=ButtonStyle.green)
+    async def send_trade(
+            self,
+            button: nextcord.ui.Button,
+            interaction: Interaction
+    ):
+        if self.sent:
+            await interaction.send(
+                ":x: Этот обмен уже был отправлен. Для повтороной отправки создайте новое предложение.",
+                ephemeral=True
+            )
+            return
 
-            await self.parent.update_message(interaction.message)
+        sender_items = await self.normalize_trade_items(self.sender_view.trade_items)
+        recipient_items = await self.normalize_trade_items(self.recipient_view.trade_items)
 
+        if not (sender_items or recipient_items):
+            await interaction.send(":x: Обмен не отправлен. Ни одного предмета не выбрано.", ephemeral=True)
+            return
 
-class PageNumberButton(nextcord.ui.Button):
-    def __init__(self, parent):
-        super().__init__(label=f"Страница {parent.current_page + 1}")
-
-        self.parent = parent
-        self.disabled = True
-
-    async def update(self):
-        self.label = f"Страница {self.parent.current_page + 1}"
-
-
-class ItemSelectionView(nextcord.ui.View):
-    def __init__(self, guild_id, player, text, title):
-        super().__init__()
-
-        self.current_page = 0
-        self.trade_items = [[]]
-        self.player = player
-        self.guild_id = guild_id
-
-        self.embed_title = title
-
-        self.add_item(ItemsDropdown(self, guild_id, player, text))
-        self.add_item(PageButton(self, "⬅️", -1))
-        self.add_item(PageNumberButton(self))
-        self.add_item(PageButton(self, "➡️", 1))
-
-    async def update_message(self, message):
-        await message.edit(
-            view=None
+        embed = nextcord.Embed(
+            title="**Вам отправлен обмен**",
+            color=0xFFFFF0
         )
-        await message.edit(
-            embed=get_page_embed_inventory(
-                self.children[0].stripped_player_inventory[self.current_page],
-                self.current_page + 1,
-                self.embed_title
-            ),
-            view=self
+
+        embed.add_field(
+            name=f"{self.sender_view.player.name}\nПредметы :",
+            value=sender_items if sender_items else "Пусто"
         )
+        embed.add_field(name="\u200b", value="\u200b")
+        embed.add_field(
+            name=f"{self.recipient_view.player.name}\nПредметы:",
+            value=recipient_items if recipient_items else "Пусто"
+        )
+
+        await self.recipient_view.player.send(
+            embed=embed,
+            view=ConfirmTradeView(
+                interaction.guild_id,
+                self.sender_view.player,
+                self.recipient_view.player,
+                sender_items,
+                recipient_items
+            )
+        )
+
+        await interaction.send("Обмен отправлен!", ephemeral=True)
+
+        await self.sender_view.message.edit(view=nextcord.ui.View())
+        await self.recipient_view.message.edit(view=nextcord.ui.View())
+        self.sent = True
+
+    @staticmethod
+    async def normalize_trade_items(trade_items: list) -> Optional[str]:
+        if trade_items:
+            return "\n".join(["\n".join(item_row) for item_row in trade_items])
+        return None
 
 
 class TradeCog(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @nextcord.slash_command(
-        name="сформировать_предложение_обмена",
-        description="Команда, с помощью которой можно сформировать предложение обмена другому игроку.",
+        name="trade",
+        description="Command to create send offer to other player",
+        description_localizations={
+            Locale.ru: "Команда, с помощью которой можно сформировать предложение обмена другому игроку."
+        },
         guild_ids=TEST_GUILDS_ID
     )
+    @application_checks.has_role("Игрок")
     async def trade(
             self,
             interaction: Interaction,
             member: nextcord.Member = SlashOption(
-                name="получатель",
-                description="Пользователь, которому будет отправлен обмен",
+                name="recipient",
+                name_localizations={
+                    Locale.ru: "получатель"
+                },
+                description="User who will recieve this trade offer",
+                description_localizations={
+                    Locale.ru: "Пользователь, которому будет отправлен обмен"
+                },
                 required=True
             )
     ):
         user = interaction.user
-        guild_id = interaction.guild_id
         guild = interaction.guild
 
         if user == member:
             raise IncorrectUser("- Совершать обмены с самим собой невозможно!\n"
                                 "Если вам не с кем обмениваться, то стоит поискать друзей?")
+
         if member.bot:
             raise IncorrectUser("- Нельзя обмениваться с Ботами!")
+
         if get(guild.roles, name="Игрок") not in member.roles:
             raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
 
-        user_inventory = get_paged_inventory(interaction.user.id, interaction.guild_id, 25)
-        member_inventory = get_paged_inventory(member.id, interaction.guild_id, 25)
+        if not (await get_inventory(user.id, guild.id) or await get_inventory(member.id, guild.id)):
+            raise MissingItems(f"- Ни у вас, ни у {member.name} нет предметов в инвентаре\n"
+                               f"Очень жаль... могло бы быть кому-то, но не мне.")
 
-        user_view = ItemSelectionView(
-            guild_id,
-            user,
-            "Выберете предметы из вашего инвентаря:",
-            "Ваш инвентарь"
-        )
-        member_view = ItemSelectionView(
-            guild_id,
-            member,
-            f"Выберете предметы из инвентаря {member.name}:",
-            f"Инвентарь {member.name}"
+        sender_view = await self.send_trade_view(interaction, user, guild.id)
+        recipient_view = await self.send_trade_view(interaction, member, guild.id)
+
+        await interaction.send(
+            view=SendTradeView(sender_view, recipient_view),
+            ephemeral=True
         )
 
-        await user.send(
-            embed=get_page_embed_inventory(user_inventory[0], 1, "Ваш инвентарь") if user_inventory else None,
-            view=user_view
+    @staticmethod
+    async def send_trade_view(
+            interaction: Interaction,
+            user: nextcord.Member,
+            guild_id: int
+    ) -> ItemSelectionView:
+        embeds = await get_paged_embed_inventory(user, guild_id, 10)
+        paged_inventory = await get_paged_inventory(user.id, guild_id, 10)
+        view = ItemSelectionView(embeds, paged_inventory, user)
+
+        message = await interaction.send(
+            embed=embeds[0],
+            view=view,
+            ephemeral=True
         )
-        await user.send(
-            embed=get_page_embed_inventory(member_inventory[0], 1, f"Инвентарь {member.name}") if member_inventory else None,
-            view=member_view
-        )
-        await user.send(
-            view=SendTradeView(user_view, member_view)
-        )
+        if not message:
+            message = await interaction.original_message()
+
+        view.message = message
+
+        return view
 
     # КОМАНДА, перевод денег
     @nextcord.slash_command(
-        name="перевести_деньги",
-        description="Команда, с помощью которой можно перевести деньги другому игроку.",
+        name="transfer_money",
+        description="Command to transfer money to other player",
+        description_localizations={
+            Locale.ru: "Команда, с помощью которой можно перевести деньги другому игроку."
+        },
         guild_ids=TEST_GUILDS_ID
     )
-    async def money_transfer(
+    async def transfer_money(
             self,
             interaction: Interaction,
             member: nextcord.Member = SlashOption(
-                name="получатель",
-                description="Пользователь, которому будут переведены деньги",
+                name="recipient",
+                name_localizations={
+                    Locale.ru: "получатель"
+                },
+                description="User who will recieve money",
+                description_localizations={
+                    Locale.ru: "Пользователь, которому будут переведены деньги"
+                },
                 required=True
             ),
             amount: int = SlashOption(
-                name="сумма",
-                description="Количество денег для отправки",
+                name="amount",
+                name_localizations={
+                    Locale.ru: "сумма"
+                },
+                description="Amount of money to send",
+                description_localizations={
+                    Locale.ru: "Сумма для отправки"
+                },
                 required=True
             )
     ):
@@ -284,22 +309,22 @@ class TradeCog(commands.Cog):
         if player_role not in member.roles:
             raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
 
-        player_user = db_sess.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
-        member_user = db_sess.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
+        player_user = DB_SESSION.query(User).filter(User.id == f"{player.id}-{guild.id}").first()
+        member_user = DB_SESSION.query(User).filter(User.id == f"{member.id}-{guild.id}").first()
 
         if amount < 1:
-            raise IncorrectMemberAmount(f"- Минимальная сумма перевода = 1!")
+            raise IncorrectMemberAmount(f"- Минимальная сумма перевода равна 1 Gaudium!")
         if player_user.balance < amount:
             raise IncorrectMemberAmount(f"- У {player_user.name} нет столько денег!")
 
-        value_emoji = self.bot.get_emoji(EMOJIS_ID['Валюта'])
+        value_emoji = EMOJIS["Валюта"]
         player_user.balance -= amount
         member_user.balance += amount
 
         await interaction.send(f":white_check_mark: {member.name} получил "
                                f"{amount} {value_emoji}")
         await member.send(f"Только что {player.name} перевёл Вам {amount} {value_emoji}")
-        db_sess.commit()
+        DB_SESSION.commit()
 
     @trade.error
     async def trade_error(
@@ -309,7 +334,7 @@ class TradeCog(commands.Cog):
     ):
         await throw_error(interaction, error)
 
-    @money_transfer.error
+    @transfer_money.error
     async def money_transfer_error(
             self,
             interaction: Interaction,
@@ -319,26 +344,41 @@ class TradeCog(commands.Cog):
 
 
 # ФУНКЦИЯ, добавляющая предмет в инвентарь
-def add_item(guild_id, player_id, item):
-    user = db_sess.query(User).filter(User.id == f"{player_id}-{guild_id}").first()
+async def add_item(
+        player_id: int,
+        guild_id: int,
+        item: int
+):
+    user = DB_SESSION.query(User).filter(User.id == f"{player_id}-{guild_id}").first()
     user.inventory += f"{';' if user.inventory != '' else ''}{item}"
-    db_sess.commit()
+    DB_SESSION.commit()
 
 
 # ФУНКЦИЯ, которая убирает предмет из инвентаря
-def remove_item(guild_id, player_id, item):
-    user = db_sess.query(User).filter(User.id == f"{player_id}-{guild_id}").first()
+async def remove_item(
+        player_id: int,
+        guild_id: int,
+        item_id: int
+):
+    user = DB_SESSION.query(User).filter(User.id == f"{player_id}-{guild_id}").first()
     inventory_list = user.inventory.split(";")
-    inventory_list.remove(item)
+    inventory_list.remove(str(item_id))
     user.inventory = ";".join(inventory_list)
-    db_sess.commit()
+    DB_SESSION.commit()
 
 
 # ФУНКЦИЯ, которая передаёт предметы из одного инвентаря в другой
-def swap_items(guild_id, items, sender_id, other_id):
-    for item in items:
-        remove_item(guild_id, sender_id, item)
-        add_item(guild_id, other_id, item)
+async def swap_items(
+        guild_id: int,
+        item_names: list,
+        sender_id: int,
+        recipient_id: int
+):
+    for item_name in item_names:
+        item_id = DB_SESSION.query(Items).filter(Items.name == item_name).first().id
+
+        await remove_item(sender_id, guild_id, item_id)
+        await add_item(recipient_id, guild_id, item_id)
 
 
 def setup(bot):
