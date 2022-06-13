@@ -1,18 +1,11 @@
-# import asyncio
-#
-# import nextcord
-# from nextcord.ext import commands
-# from nextcord import Interaction, SlashOption
-# from nextcord.utils import get
-#
-# from constants import *
-#
-# from itertools import combinations
-#
-# from enum import Enum
-# from random import shuffle, choice
-#
-#
+from general_imports import *
+
+# TODO: добавить локализацию выводов для англ и рус языков
+# TODO: избавиться от багов
+# TODO: оптимизировать код
+# TODO: улучшить дизайн команд
+# TODO: убрать ненужные ephemeral из сообщений
+
 # RANK_INFO = {
 #     "6": {"value": 4},
 #     "7": {"value": 5},
@@ -229,9 +222,9 @@
 #         await commit_changes(active_players, "game_data/active_players.json")
 #
 #
-# class PokerCog(commands.Cog):
-#     def __init__(self, bot):
-#         self.bot = bot
+class PokerCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
 #
 #     @nextcord.slash_command(
 #         guild_ids=TEST_GUILDS_ID
@@ -651,5 +644,5 @@
 #     return next_player_id, next_player
 #
 #
-# def setup(bot):
-#     bot.add_cog(PokerCog(bot))
+def setup(bot):
+    bot.add_cog(PokerCog(bot))

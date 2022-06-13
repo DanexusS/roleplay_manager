@@ -1,6 +1,21 @@
 import nextcord
 from typing import Optional
 
+# TODO: избавиться от багов
+# TODO: улучшить дизайн команд
+# TODO: добавить локализацию выводов для англ и рус языков
+
+# TODO: Добавить класс ProgressBar
+
+
+class ProgressBar:
+    def __init__(self, min_value: float, max_value: float):
+        self.min_value = min_value
+        self.max_value = max_value
+
+    def __repr__(self):
+        pass
+
 
 class Paginator(nextcord.ui.View):
     def __init__(

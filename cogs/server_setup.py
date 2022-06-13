@@ -1,11 +1,19 @@
 import asyncio
 import random
-
 from datetime import datetime
 
-# from nextcord import Locale, Permissions
-
 from general_imports import *
+
+# TODO: оптимизировать код
+# TODO: улучшить дизайн команд
+# TODO: убрать ненужные ephemeral из сообщений
+# TODO: добавить локализацию выводов для англ и рус языков
+# TODO: избавиться от багов
+
+# TODO: добавить команду для более детальной настройки бота
+# TODO: Доработать систему регистрации
+# TODO: Сделать логику магазинов более удобной
+# TODO: Засунить вышеперечисленные команды в отдельный файл
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -stream_loop -1',
@@ -28,62 +36,64 @@ TIME_STORE_UPDATE = "18:00"
 STORE_TYPES = json.load(open("json_data/store_types.json", encoding="utf8"))
 
 
-class RegistrationModal(nextcord.ui.Modal):
-    def __init__(self):
-        super().__init__(
-            "Создания персонажа",
-            timeout=5 * 60
-        )
-
-        # self.nation_select = nextcord.ui.Select(
-        #     placeholder="Выберите расу Вашего персонажа",
-        #     options=[
-        #         nextcord.SelectOption(
-        #             label="Северяне",
-        #             description="В чём их бафы"
-        #         ),
-        #         nextcord.SelectOption(
-        #             label="Южане",
-        #             description="В чём их бафы"
-        #         ),
-        #         nextcord.SelectOption(
-        #             label="Техно-гики",
-        #             description="В чём их бафы"
-        #         )
-        #     ]
-        # )
-        # self.add_item(self.nation_select)
-        #
-        # self.origin_select = nextcord.ui.Select(
-        #     placeholder="Выберите расу Вашего персонажа",
-        #     options=[
-        #         nextcord.SelectOption(
-        #             label="Богатая семья",
-        #             description="В чём их бафы"
-        #         ),
-        #         nextcord.SelectOption(
-        #             label="Обычная семья",
-        #             description="В чём их бафы"
-        #         ),
-        #         nextcord.SelectOption(
-        #             label="Бедная семья",
-        #             description="В чём их бафы"
-        #         )
-        #     ]
-        # )
-        # self.add_item(self.origin_select)
-
-        self.name_input = nextcord.ui.TextInput(
-            label="Введите имя Вашего персонажа",
-            min_length=3,
-            max_length=15
-        )
-        self.add_item(self.name_input)
-
-    # async def callback(self, interaction: nextcord.Interaction) -> None:
-    #     await interaction.send(f"{self.nation_select.values}, {self.origin_select.values}, {self.name_input.value}")
-
-
+# TODO: стоит это убрать, пока что не работает как хотелось
+# class RegistrationModal(nextcord.ui.Modal):
+#     def __init__(self):
+#         super().__init__(
+#             "Создания персонажа",
+#             timeout=5 * 60
+#         )
+#
+#         # self.nation_select = nextcord.ui.Select(
+#         #     placeholder="Выберите расу Вашего персонажа",
+#         #     options=[
+#         #         nextcord.SelectOption(
+#         #             label="Северяне",
+#         #             description="В чём их бафы"
+#         #         ),
+#         #         nextcord.SelectOption(
+#         #             label="Южане",
+#         #             description="В чём их бафы"
+#         #         ),
+#         #         nextcord.SelectOption(
+#         #             label="Техно-гики",
+#         #             description="В чём их бафы"
+#         #         )
+#         #     ]
+#         # )
+#         # self.add_item(self.nation_select)
+#         #
+#         # self.origin_select = nextcord.ui.Select(
+#         #     placeholder="Выберите расу Вашего персонажа",
+#         #     options=[
+#         #         nextcord.SelectOption(
+#         #             label="Богатая семья",
+#         #             description="В чём их бафы"
+#         #         ),
+#         #         nextcord.SelectOption(
+#         #             label="Обычная семья",
+#         #             description="В чём их бафы"
+#         #         ),
+#         #         nextcord.SelectOption(
+#         #             label="Бедная семья",
+#         #             description="В чём их бафы"
+#         #         )
+#         #     ]
+#         # )
+#         # self.add_item(self.origin_select)
+#
+#         self.name_input = nextcord.ui.TextInput(
+#             label="Введите имя Вашего персонажа",
+#             min_length=3,
+#             max_length=15
+#         )
+#         self.add_item(self.name_input)
+#
+#     # async def callback(self, interaction: nextcord.Interaction) -> None:
+#     #     await interaction.send(f"{self.nation_select.values}, {self.origin_select.values}, {self.name_input.value}")
+#
+#
+# TODO: подразобрать этот блок кода
 # class NationButton(nextcord.ui.Button):
 #     def __init__(self, title: str):
 #         super().__init__(style=nextcord.ButtonStyle.gray, emoji=EMOJIS[title])
@@ -199,6 +209,7 @@ class ServerSetupCog(commands.Cog):
                 # Отправка сообщения
                 # await store_channel.send(embed=embed, view=shop_view)
 
+    # TODO: оптимизировать логику обновления магазина
     # ФУНКЦИЯ, проверяющая нужно ли обновить магазин
     async def store_update_cycle(self):
         while True:
@@ -207,6 +218,9 @@ class ServerSetupCog(commands.Cog):
                     await self.store_update(guild)
             await asyncio.sleep(60)
 
+    # TODO: проигрывание музыки надо переделать, так как общей категории с главной темой нет
+    # TODO: разобраться как делать плейлисты для воспроизведения
+    # TODO: составить плейлист под сеттинг бота и поставить его на воспроизведение
     # ФУНКЦИЯ, подключение к каналу "🎶Главная тема" на всех серверах
     # async def channel_connection(self):
     #     for guild in self.bot.guilds:
@@ -319,15 +333,14 @@ class ServerSetupCog(commands.Cog):
 
         return channel
 
-    @nextcord.slash_command(guild_ids=TEST_GUILDS_ID)
-    async def bot(self, interaction: Interaction):
-        pass
-
     @nextcord.slash_command(
-        description="hi",
+        description="Gain all basic information you need about game's setting.",
+        description_localizations={
+            Locale.ru: "Получить общую информацию о сеттинге игры"
+        },
         guild_ids=TEST_GUILDS_ID
     )
-    async def bot_information(self, interaction: Interaction):
+    async def game_information(self, interaction: Interaction):
         history_embed = nextcord.Embed(title='⮮ __**История:**__', color=0x7db1ff)
         history_embed.add_field(
             name='\u200b',
@@ -364,25 +377,22 @@ class ServerSetupCog(commands.Cog):
         await interaction.send(embed=info_embed, ephemeral=True)
 
     # КОМАНДА, настраивающая сервер
-    @bot.subcommand(
-        description="Команда, с помощью которой можно подключить бота к серверу."
+    @nextcord.slash_command(
+        description="Install bot to get all of the functions.",
+        description_localizations={
+            Locale.ru: "Команда, с помощью которой можно подключить бота к серверу."
+        },
+        default_member_permissions=Permissions(administrator=True),
+        guild_ids=TEST_GUILDS_ID
     )
-    # @nextcord.slash_command(
-    #     description="Команда, с помощью которой можно подключить бота к серверу.",
-    #     description_localizations={Locale.ru: "Команда, с помощью которой можно перевести деньги другому игроку.",
-    #                                Locale.en_GB: "Command to transfer money to other player"},
-    #     default_member_permissions=Permissions(administrator=True),
-    #     guild_ids=TEST_GUILDS_ID
-    # )
-    # @application_checks.has_guild_permissions(administrator=True)
-    async def install(self, interaction: Interaction):
+    async def setup_server(self, interaction: Interaction):
         guild = interaction.guild
         check_implement = False
-        roles_for_permss = {}
+        permission_roles = {}
 
         # Создание ролей
         for role_name, color in GAME_ROLES_COLORS.items():
-            roles_for_permss[role_name] = get(guild.roles, name=role_name)
+            permission_roles[role_name] = get(guild.roles, name=role_name)
             if not get(guild.roles, name=role_name):
                 await guild.create_role(name=role_name, color=color)
                 await interaction.send(
@@ -406,7 +416,7 @@ class ServerSetupCog(commands.Cog):
                     channels[channel_name].values(),
                     category,
                     channel_name,
-                    roles_for_permss
+                    permission_roles
                 )
                 if channel:
                     check_implement = True
@@ -427,8 +437,8 @@ class ServerSetupCog(commands.Cog):
         # if not get(guild.voice_channels, name=name_voice):
         #     channel = await guild.create_voice_channel(name_voice,
         #                                                category=get(guild.categories, name="ОБЩЕЕ"), position=4)
-        #     await channel.set_permissions(roles_for_permss["non-game"], speak=False, view_channel=False)
-        #     await channel.set_permissions(roles_for_permss["game"], speak=False, view_channel=True)
+        #     await channel.set_permissions(permission_roles["non-game"], speak=False, view_channel=False)
+        #     await channel.set_permissions(permission_roles["game"], speak=False, view_channel=True)
         #     check_implement = True
 
         # Заполнение базы данных
@@ -495,8 +505,9 @@ class ServerSetupCog(commands.Cog):
         # Уведомление
         if chek_delete_db:
             await interaction.send(":white_check_mark: **Готово!**")
-        else:
-            await interaction.send(":x: **Пользователей нет в базе данных!**")
+            return
+
+        await interaction.send(":x: **Пользователей нет в базе данных!**")
 
     # @bot_install.error
     # async def install_error(

@@ -2,7 +2,7 @@ import nextcord
 from nextcord import Interaction, SlashOption
 from nextcord.ext import commands, application_checks
 from nextcord.utils import get
-from nextcord import Locale
+from nextcord import Locale, Permissions
 
 from typing import Optional
 

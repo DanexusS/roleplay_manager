@@ -1,8 +1,13 @@
-import nextcord
-from nextcord import ButtonStyle, Locale, Permissions
+from nextcord import ButtonStyle
 
 from general_imports import *
 from cogs.user_experience import get_paged_inventory, get_paged_embed_inventory, get_inventory
+
+# TODO: оптимизировать код
+# TODO: улучшить дизайн команд
+# TODO: убрать ненужные ephemeral из сообщений
+# TODO: добавить локализацию выводов для англ и рус языков
+# TODO: избавиться от багов
 
 
 class ConfirmTradeView(nextcord.ui.View):
@@ -218,19 +223,20 @@ class TradeCog(commands.Cog):
         user = interaction.user
         guild = interaction.guild
 
+        trade_errors = LOCALIZATIONS["Errors"]["Trade"]
+        user_locale = interaction.locale[:2]
+
         if user == member:
-            raise IncorrectUser("- Совершать обмены с самим собой невозможно!\n"
-                                "Если вам не с кем обмениваться, то стоит поискать друзей?")
+            raise IncorrectUser(trade_errors["Self-trade"][user_locale])
 
         if member.bot:
-            raise IncorrectUser("- Нельзя обмениваться с Ботами!")
+            raise IncorrectUser(trade_errors["Self-trade"][user_locale])
 
         if get(guild.roles, name="Игрок") not in member.roles:
-            raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
+            raise IncorrectUser(trade_errors["Missing-role"][user_locale].format(member.name))
 
         if not (await get_inventory(user.id, guild.id) or await get_inventory(member.id, guild.id)):
-            raise MissingItems(f"- Ни у вас, ни у {member.name} нет предметов в инвентаре\n"
-                               f"Очень жаль... могло бы быть кому-то, но не мне.")
+            raise MissingItems(trade_errors["Missing-items"][user_locale].format(member.name))
 
         sender_view = await self.send_trade_view(interaction, user, guild.id)
         recipient_view = await self.send_trade_view(interaction, member, guild.id)

@@ -1,6 +1,9 @@
 import json
-from typing import Optional
 import nextcord
+from nextcord.ext.commands import MissingRole, CommandNotFound
+
+from constants import LOCALIZATIONS
+from typing import Optional
 
 
 # ФУНКЦИЯ, делающая чистый id пользователя
@@ -21,22 +24,17 @@ async def throw_error(
         error: Exception
 ):
     text = error
+    if isinstance(error, MissingRole):
+        text = LOCALIZATIONS["Errors"]["General"]["Missing-role"][interaction.locale[:2]]
+    if isinstance(error, CommandNotFound):
+        text = LOCALIZATIONS["Errors"]["General"]["Incorrect-command"][interaction.locale[:2]]
 
-    # if isinstance(error, MissingRole):
-    #     text = f"- У вас нет роли \"Игрок\" для использования этой команды."
-    # if isinstance(error, MissingPermissions):
-    #     text = "- У вас недостаточно прав для использования этой команды. (Как иронично)"
-    # if isinstance(error, CommandNotFound):
-    #     text = "- Неверная команда! Для получения списка команд достаточно нажать \"/\""
-
-    embed = nextcord.Embed(title=nextcord.Embed.Empty, color=0xed4337)
+    embed = nextcord.Embed(title=nextcord.Embed.Empty, color=0xED4337)
+    embed.set_footer(text=LOCALIZATIONS["Error_Handler"]["Footer"][interaction.locale[:2]])
     embed.add_field(
-        name="**Причина:**",
+        name=LOCALIZATIONS["Error_Handler"]["Field_title"][interaction.locale[:2]],
         value=f"```diff\n{text}\n```",
         inline=False
     )
 
-    await interaction.send(
-        embed=embed,
-        ephemeral=True
-    )
+    await interaction.send(embed=embed, ephemeral=True)

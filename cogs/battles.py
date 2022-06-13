@@ -1,16 +1,18 @@
-# import asyncio
-# import random
-# from pafy import new as make_new_video
-# from datetime import datetime
-#
-# from nextcord.ext import commands
-# from nextcord import Interaction, FFmpegPCMAudio, SlashOption
-# from nextcord.utils import get
-#
-# from constants import *
-# from cogs.trade import add_item
-#
-#
+from general_imports import *
+
+# TODO: оптимизировать код
+# TODO: избавиться от багов
+# TODO: улучшить дизайн команд
+# TODO: убрать ненужные ephemeral из сообщений
+# TODO: добавить локализацию выводов для англ и рус языков
+
+# TODO: ПОЛНОСТЬЮ изменить код сражений
+# TODO: Добавить более интересные награды
+# TODO: Добавить небольшие истории для сражений
+# TODO: Сделать из сражений миссии - доп. пункты: дойти до места, убить врагов, забрать лут и вернуться на базу
+# TODO: Добавить возможность выходить на миссии компанией, добавить миссии с командой
+# TODO: Добавить "вид" игрового поля (противники и команда и т.п.)
+
 # BATTLES_ID = {}
 #
 #
@@ -533,9 +535,9 @@
 #         return total_damage
 #
 #
-# class ServerSetupCog(commands.Cog):
-#     def __init__(self, bot):
-#         self.bot = bot
+class BattlesCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
 #
 #     @nextcord.slash_command(
 #         name="mission_run",
@@ -550,5 +552,5 @@
 #         await a.add_missions()
 #
 #
-# def setup(bot):
-#     bot.add_cog(ServerSetupCog(bot))
+def setup(bot):
+    bot.add_cog(BattlesCog(bot))

@@ -1,0 +1,62 @@
+{
+  "General": {
+    "Role-name": {
+      "en": "Player",
+      "ru": "Игрок"
+    }
+  },
+  "Error_Handler": {
+    "Footer": {
+      "en": "Use /help to see full command info",
+      "ru": "Воспользуйтесь /help для получения информации о командах"
+    },
+    "Field_title": {
+      "en": "**ERROR**",
+      "ru": "**ОШИБКА**"
+    }
+  },
+  "Errors": {
+    "General": {
+      "Missing-role": {
+        "en": "- You don't have \"Player\" role to user this command!",
+        "ru": "- У вас нет роли \"Игрок\" для использования этой команды!"
+      },
+      "Incorrect-command": {
+        "en": "- Incorrect command!",
+        "ru": "- Неверная команда!"
+      }
+    },
+    "Profile": {
+      "Member-missing-role": {
+        "en": "- {member} doesn't have role \"Player\"!",
+        "ru": "- У {member} нет роли \"Игрок\"!"
+      },
+      "Missing-role": {
+        "en": "- You don't have \"Player\" role to user this command!",
+        "ru": "- У вас нет роли \"Игрок\" для использования этой команды!"
+      },
+      "Bot-profile": {
+        "en": "- Bots don't have a gaming profile!\nDon't you dare open their profile - it is useless.",
+        "ru": "- У ботов нет игрового профиля!\nДаже не пытайтесь открыть у них профиль - это бесполезно!"
+      }
+    },
+    "Trade": {
+      "Bot-trade": {
+        "en": "- You can't trade with Bots!",
+        "ru": "- Нельзя обмениваться с Ботами!"
+      },
+      "Self-trade": {
+        "en": "- You can't trade with yourself!\nMaybe you'd try finding new friends?",
+        "ru": "- Совершать обмены с самим собой невозможно!\nЕсли вам не с кем обмениваться, то стоит поискать друзей?"
+      },
+      "Missing-role": {
+        "en": "- {member} doesn't have role \"Player\"!",
+        "ru": "- У {member} нет роли \"Игрок\"!"
+      },
+      "Missing-items": {
+        "en": "- Neither you nor {member} have items in the inventory.",
+        "ru": "- Ни у вас, ни у {member} нет предметов в инвентаре."
+      }
+    }
+  }
+}

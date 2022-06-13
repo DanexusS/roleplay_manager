@@ -1,27 +1,53 @@
 import asyncio
 from general_imports import *
 
+# TODO: оптимизировать код
+# TODO: избавиться от багов
+# TODO: улучшить дизайн команд
+# TODO: убрать ненужные ephemeral из сообщений
+# TODO: добавить локализацию выводов для англ и рус языков
 
-class InventoryCog(commands.Cog):
+# TODO: Добавить команду для прокачки характеристик
+# TODO: добавить систему ивентов с дополнительными возможностями и бонусами
+# TODO: добавить команду анализирования предметов
+
+
+class UserExperienceCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    # TODO: доработать перемещение и разобраться с неполадками
     # КОМАНДА, перемещение между городами
     @nextcord.slash_command(
-        name="travel",
-        description="Команда, с помощью которой можно отправиться в другой город.",
+        description="Command to travel to the different city.",
+        description_localizations={
+            Locale.ru: "Команда, с помощью которой можно отправиться в другой город."
+        },
         guild_ids=TEST_GUILDS_ID
     )
-    async def move(
+    async def travel(
             self,
             interaction: Interaction,
             city_name: str = SlashOption(
-                name="пункт_назначения",
-                description="Название места, в которое Вы хотите отправится.",
-                choices={
-                    "Тополис": "Тополис",
-                    "Браифаст": "Браифаст",
-                    "Джадифф": "Джадифф"
+                name="destination",
+                name_localizations={
+                    Locale.ru: "пункт_назначения"
+                },
+                description="Name of the city.",
+                description_localizations={
+                    Locale.ru: "Название города."
+                },
+                choices=["Topolis", "Braifast", "Jadiff"],
+                choice_localizations={
+                    "Topolis": {
+                        Locale.ru: "Тополис"
+                    },
+                    "Braifast": {
+                        Locale.ru: "Браифаст"
+                    },
+                    "Jadiff": {
+                        Locale.ru: "Джадифф"
+                    }
                 }
             )
     ):
@@ -56,9 +82,9 @@ class InventoryCog(commands.Cog):
         # await get(guild.channels, name=f"таверна-{city_name[0].lower()}").send(f"{user.mention} *прибыл!*")
         await user.send(f":white_check_mark: **С прибытием в {city_name}.**")
 
+    # TODO: Доработать и улучшить профиль игрока
     # КОМАНДА, для вливания скилл поинтов в характеристики
     @nextcord.slash_command(
-        name="profile",
         description="Command to open gaming profile.",
         description_localizations={
             Locale.ru: "Команда, с помощь которой можно посмотреть игровой профиль."
@@ -82,14 +108,21 @@ class InventoryCog(commands.Cog):
         guild = interaction.guild
         user = member or interaction.user
 
-        if get(guild.roles, name="Игрок") not in interaction.user.roles:
-            raise IncorrectUser("- У Вас нет роли \"Игрок\"!")
+        guild_locale = interaction.guild_locale[:2]
+        user_locale = interaction.locale[:2]
+        profile_errors = LOCALIZATIONS["Errors"]["Profile"]
+
+        player_role = get(guild.roles, name=LOCALIZATIONS["General"]["Role-name"][guild_locale])
+
+        if player_role not in interaction.user.roles:
+            raise IncorrectUser(profile_errors["Missing-role"][user_locale])
+
         if member:
             if member.bot:
-                raise IncorrectUser("- У ботов нет инвентаря!\n"
-                                    "Даже не пытайтесь открыть у них инвентарь - это бесполезно!")
-            if get(guild.roles, name="Игрок") not in member.roles:
-                raise IncorrectUser(f"- У {member.name} нет роли \"Игрок\"!")
+                raise IncorrectUser(profile_errors["Bot-profile"][user_locale])
+
+            if player_role not in member.roles:
+                raise IncorrectUser(profile_errors["Member-missing-role"][user_locale].format(member.name))
 
         db_user = DB_SESSION.query(User).filter(User.id == f"{user.id}-{guild.id}").first()
 
@@ -114,15 +147,13 @@ class InventoryCog(commands.Cog):
         embed.set_thumbnail(url=user.avatar.url)
         embed.set_footer(text=f"Никнейм Discord: {user.name}")
 
-        # if user.skill_points > 0:
-        #     buttons = [Button(style=ButtonStyle.blue, label=f"Улучшить {elem}") for elem in \
-        #                ['здоровье', 'силу', 'интелект', 'маторику', 'скорость']]
-        #     await ctx.channel.send(
-        #         embed=embed,
-        #         components=[buttons]
-        #     )
-        # else:
-        await interaction.send(embed=embed, ephemeral=True)
+        await interaction.send(embed=embed)
+
+    @nextcord.slash_command(
+        guild_ids=TEST_GUILDS_ID
+    )
+    async def skill_tree(self, interaction: Interaction):
+        pass
 
     # КОМАНДА, открывающая инвентарь
     @nextcord.slash_command(
@@ -169,7 +200,7 @@ class InventoryCog(commands.Cog):
             ephemeral=True
         )
 
-    @move.error
+    @travel.error
     async def move_error(
             self,
             interaction: Interaction,
@@ -270,6 +301,7 @@ async def get_inventory(
     return player_inventory
 
 
+# TODO: добавить более значимую роль уровня и его прокачки
 # ФУНКЦИЯ, добавляющая xp, lvl
 async def add_xp(
         guild_id: int,
@@ -287,4 +319,4 @@ async def add_xp(
 
 
 def setup(bot: commands.Bot):
-    bot.add_cog(InventoryCog(bot))
+    bot.add_cog(UserExperienceCog(bot))

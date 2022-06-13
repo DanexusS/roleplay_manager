@@ -1,5 +1,11 @@
 from general_imports import *
 
+# TODO: оптимизировать код
+# TODO: улучшить дизайн команд
+# TODO: убрать ненужные ephemeral из сообщений
+# TODO: разобраться что к чему и добавить локализацию
+# TODO: избавиться от багов
+
 
 class TicTacToeButton(nextcord.ui.Button):
     def __init__(self, x, y):
